@@ -170,13 +170,11 @@ CMakeFiles/riscv_sim.dir/src/main.cpp.obj: \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_bvector.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/vector.tcc \
   E:/RISC-V_Platform/include/riscv/simulator.h \
+  E:/RISC-V_Platform/include/riscv/memory.h \
   F:/msys64/ucrt64/include/c++/15.1.0/cstdint \
   F:/msys64/ucrt64/lib/clang/20/include/stdint.h \
   F:/msys64/ucrt64/include/stdint.h \
   F:/msys64/ucrt64/lib/clang/20/include/__stddef_wint_t.h \
-  F:/msys64/ucrt64/include/c++/15.1.0/optional \
-  F:/msys64/ucrt64/include/c++/15.1.0/bits/enable_special_members.h \
-  E:/RISC-V_Platform/include/riscv/memory.h \
   E:/RISC-V_Platform/include/riscv/types.h \
   E:/RISC-V_Platform/include/riscv/pipeline.h \
   E:/RISC-V_Platform/include/riscv/decoder.h \

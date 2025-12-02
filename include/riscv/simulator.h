@@ -1,8 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
-#include <optional>
 #include <vector>
 
 #include "riscv/memory.h"
@@ -10,6 +7,13 @@
 #include "riscv/register_file.h"
 
 namespace riscv {
+
+enum class HaltReason {
+    None,
+    Ecall,
+    Ebreak,
+    InvalidInstruction,
+};
 
 class RISCVSimulator {
 public:
@@ -26,6 +30,10 @@ public:
     [[nodiscard]] const PipelineState& pipeline_state() const { return pipeline_state_; }
     [[nodiscard]] u64 cycle() const { return cycle_; }
     [[nodiscard]] u32 pc() const { return pc_; }
+    [[nodiscard]] bool halted() const { return halted_; }
+    [[nodiscard]] HaltReason halt_reason() const { return halt_reason_; }
+    [[nodiscard]] u32 halt_pc() const { return halt_pc_; }
+    [[nodiscard]] u32 halt_inst() const { return halt_inst_; }
 
 private:
     void stage_if();
@@ -54,6 +62,9 @@ private:
     u32 pc_{RESET_VECTOR};
     u64 cycle_{0};
     bool halted_{false};
+    HaltReason halt_reason_{HaltReason::None};
+    u32 halt_pc_{0};
+    u32 halt_inst_{0};
     bool stall_fetch_{false};
     bool redirect_{false};
     u32 redirect_target_{0};

@@ -1,12 +1,6 @@
 #include "riscv/simulator.h"
 
-#include <algorithm>
-#include <array>
-#include <cstdint>
-#include <fstream>
 #include <optional>
-#include <stdexcept>
-#include <string>
 
 #include "riscv/decoder.h"
 #include "riscv/register_file.h"
@@ -132,6 +126,9 @@ void RISCVSimulator::reset() {
     next_pc_ = pc_;
     cycle_ = 0;
     halted_ = false;
+    halt_reason_ = HaltReason::None;
+    halt_pc_ = 0;
+    halt_inst_ = 0;
 }
 
 void RISCVSimulator::run(u32 cycles) {
@@ -177,7 +174,13 @@ void RISCVSimulator::stage_if() {
     }
 
     if (!memory_.contains(pc_)) {
-        throw std::runtime_error("PC out of memory range");
+        // PC 越界视为程序错误，设置停止原因并优雅停止
+        halted_ = true;
+        halt_reason_ = HaltReason::InvalidInstruction;
+        halt_pc_ = pc_;
+        halt_inst_ = 0;
+        next_if_id_.valid = false;
+        return;
     }
 
     next_if_id_.valid = true;
@@ -193,9 +196,6 @@ void RISCVSimulator::stage_id() {
     }
 
     auto instr = decode(if_id_.inst, if_id_.pc);
-    if (!instr.is_valid()) {
-        throw std::runtime_error("Invalid instruction encountered");
-    }
 
     const bool hazard = id_ex_.valid && id_ex_.instr.is_load() && id_ex_.instr.rd != 0 &&
                         ((uses_rs1(instr.kind) && instr.rs1 == id_ex_.instr.rd) ||
@@ -384,10 +384,16 @@ void RISCVSimulator::stage_ex() {
             break;
         case InstructionKind::ECALL:
         case InstructionKind::EBREAK:
-            halted_ = true;
+            // 在EX阶段不立刻停止，只标记结果，让指令顺利流到WB阶段再停机
+            alu_result = 0;
             break;
         default:
-            throw std::runtime_error("Unsupported instruction kind: " + to_string(instr.kind));
+            // 理论上不应该到这里：将其视为非法指令
+            halted_ = true;
+            halt_reason_ = HaltReason::InvalidInstruction;
+            halt_pc_ = instr.pc;
+            halt_inst_ = instr.raw;
+            return;
     }
 
     next_ex_mem_.valid = id_ex_.valid;
@@ -461,6 +467,18 @@ void RISCVSimulator::stage_wb() {
     }
     if (mem_wb_.instr.writes_rd()) {
         regs_.write(mem_wb_.instr.rd, mem_wb_.wb_value);
+    }
+
+    // 在WB阶段“提交”ECALL/EBREAK：等前面的指令都写回后再停机
+    if (mem_wb_.instr.is_system()) {
+        halted_ = true;
+        if (mem_wb_.instr.kind == InstructionKind::ECALL) {
+            halt_reason_ = HaltReason::Ecall;
+        } else if (mem_wb_.instr.kind == InstructionKind::EBREAK) {
+            halt_reason_ = HaltReason::Ebreak;
+        }
+        halt_pc_ = mem_wb_.instr.pc;
+        halt_inst_ = mem_wb_.instr.raw;
     }
 }
 
