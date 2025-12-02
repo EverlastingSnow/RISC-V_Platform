@@ -1,0 +1,32 @@
+[
+{
+  "directory": "E:/RISC-V_Platform/build",
+  "command": "F:\\msys64\\ucrt64\\bin\\clang++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\memory.cpp.obj -c E:\\RISC-V_Platform\\src\\memory.cpp",
+  "file": "E:/RISC-V_Platform/src/memory.cpp",
+  "output": "CMakeFiles/riscv_core.dir/src/memory.cpp.obj"
+},
+{
+  "directory": "E:/RISC-V_Platform/build",
+  "command": "F:\\msys64\\ucrt64\\bin\\clang++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\register_file.cpp.obj -c E:\\RISC-V_Platform\\src\\register_file.cpp",
+  "file": "E:/RISC-V_Platform/src/register_file.cpp",
+  "output": "CMakeFiles/riscv_core.dir/src/register_file.cpp.obj"
+},
+{
+  "directory": "E:/RISC-V_Platform/build",
+  "command": "F:\\msys64\\ucrt64\\bin\\clang++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\decoder.cpp.obj -c E:\\RISC-V_Platform\\src\\decoder.cpp",
+  "file": "E:/RISC-V_Platform/src/decoder.cpp",
+  "output": "CMakeFiles/riscv_core.dir/src/decoder.cpp.obj"
+},
+{
+  "directory": "E:/RISC-V_Platform/build",
+  "command": "F:\\msys64\\ucrt64\\bin\\clang++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\simulator.cpp.obj -c E:\\RISC-V_Platform\\src\\simulator.cpp",
+  "file": "E:/RISC-V_Platform/src/simulator.cpp",
+  "output": "CMakeFiles/riscv_core.dir/src/simulator.cpp.obj"
+},
+{
+  "directory": "E:/RISC-V_Platform/build",
+  "command": "F:\\msys64\\ucrt64\\bin\\clang++.exe  @CMakeFiles/riscv_sim.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_sim.dir\\src\\main.cpp.obj -c E:\\RISC-V_Platform\\src\\main.cpp",
+  "file": "E:/RISC-V_Platform/src/main.cpp",
+  "output": "CMakeFiles/riscv_sim.dir/src/main.cpp.obj"
+}
+]

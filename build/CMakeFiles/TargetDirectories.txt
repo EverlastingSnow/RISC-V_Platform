@@ -1,0 +1,4 @@
+E:/RISC-V_Platform/build/CMakeFiles/riscv_core.dir
+E:/RISC-V_Platform/build/CMakeFiles/riscv_sim.dir
+E:/RISC-V_Platform/build/CMakeFiles/edit_cache.dir
+E:/RISC-V_Platform/build/CMakeFiles/rebuild_cache.dir

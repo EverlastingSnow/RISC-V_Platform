@@ -1,0 +1,90 @@
+{
+	"kind" : "toolchains",
+	"toolchains" : 
+	[
+		{
+			"compiler" : 
+			{
+				"id" : "Clang",
+				"implicit" : 
+				{
+					"includeDirectories" : 
+					[
+						"F:/msys64/ucrt64/include/c++/15.1.0",
+						"F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32",
+						"F:/msys64/ucrt64/include/c++/15.1.0/backward",
+						"F:/msys64/ucrt64/lib/clang/20/include",
+						"F:/msys64/ucrt64/include"
+					],
+					"linkDirectories" : 
+					[
+						"F:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.1.0",
+						"F:/msys64/ucrt64/x86_64-w64-mingw32/lib",
+						"F:/msys64/ucrt64/x86_64-w64-mingw32/mingw/lib",
+						"F:/msys64/ucrt64/lib"
+					],
+					"linkFrameworkDirectories" : [],
+					"linkLibraries" : 
+					[
+						"stdc++",
+						"mingw32",
+						"gcc_s",
+						"gcc",
+						"moldname",
+						"mingwex",
+						"pthread",
+						"advapi32",
+						"shell32",
+						"user32",
+						"kernel32",
+						"mingw32",
+						"gcc_s",
+						"gcc",
+						"moldname",
+						"mingwex",
+						"kernel32"
+					]
+				},
+				"path" : "F:/msys64/ucrt64/bin/clang++.exe",
+				"version" : "20.1.5"
+			},
+			"language" : "CXX",
+			"sourceFileExtensions" : 
+			[
+				"C",
+				"M",
+				"c++",
+				"cc",
+				"cpp",
+				"cxx",
+				"m",
+				"mm",
+				"mpp",
+				"CPP",
+				"ixx",
+				"cppm",
+				"ccm",
+				"cxxm",
+				"c++m"
+			]
+		},
+		{
+			"compiler" : 
+			{
+				"implicit" : {},
+				"path" : "F:/msys64/ucrt64/bin/windres.exe"
+			},
+			"language" : "RC",
+			"sourceFileExtensions" : 
+			[
+				"rc",
+				"RC"
+			]
+		}
+	],
+	"version" : 
+	{
+		"major" : 1,
+		"minor" : 0
+	}
+}
