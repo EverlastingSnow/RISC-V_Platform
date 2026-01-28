@@ -13,14 +13,14 @@ void RegisterFile::reset() {
     registers_.fill(0);
 }
 
-void RegisterFile::write(u32 index, u32 value) {
+void RegisterFile::write(u32 index, u64 value) {
     if (index == 0 || index >= REGISTER_COUNT) {
         return;
     }
     registers_[index] = value;
 }
 
-u32 RegisterFile::read(u32 index) const {
+u64 RegisterFile::read(u32 index) const {
     if (index >= REGISTER_COUNT) {
         throw std::out_of_range("Register index out of range");
     }

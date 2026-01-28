@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "riscv/csr.h"
 #include "riscv/memory.h"
 #include "riscv/pipeline.h"
 #include "riscv/register_file.h"
@@ -19,7 +20,7 @@ class RISCVSimulator {
 public:
     RISCVSimulator();
 
-    void load_program(const std::vector<u8>& binary, u32 offset = 0);
+    void load_program(const std::vector<u8>& binary, u64 offset = 0);
     void reset();
     void step();
     void run(u32 cycles);
@@ -29,10 +30,16 @@ public:
     [[nodiscard]] Memory& memory() { return memory_; }
     [[nodiscard]] const PipelineState& pipeline_state() const { return pipeline_state_; }
     [[nodiscard]] u64 cycle() const { return cycle_; }
-    [[nodiscard]] u32 pc() const { return pc_; }
+    [[nodiscard]] u64 pc() const { return pc_; }
     [[nodiscard]] bool halted() const { return halted_; }
     [[nodiscard]] HaltReason halt_reason() const { return halt_reason_; }
-    [[nodiscard]] u32 halt_pc() const { return halt_pc_; }
+    [[nodiscard]] bool halt_reason_ecall() const {
+        return halt_reason_ == HaltReason::Ecall;
+    }
+    [[nodiscard]] bool halt_reason_ebreak() const {
+        return halt_reason_ == HaltReason::Ebreak;
+    }
+    [[nodiscard]] u64 halt_pc() const { return halt_pc_; }
     [[nodiscard]] u32 halt_inst() const { return halt_inst_; }
 
 private:
@@ -46,6 +53,7 @@ private:
 
     Memory memory_;
     RegisterFile regs_;
+    CSR csr_;
 
     IFID if_id_{};
     IDEX id_ex_{};
@@ -59,18 +67,18 @@ private:
 
     PipelineState pipeline_state_{};
 
-    u32 pc_{RESET_VECTOR};
+    u64 pc_{RESET_VECTOR};
     u64 cycle_{0};
     bool halted_{false};
     HaltReason halt_reason_{HaltReason::None};
-    u32 halt_pc_{0};
+    u64 halt_pc_{0};
     u32 halt_inst_{0};
     bool stall_fetch_{false};
     bool redirect_{false};
-    u32 redirect_target_{0};
+    u64 redirect_target_{0};
     bool flush_decode_{false};
     bool flush_execute_{false};
-    u32 next_pc_{RESET_VECTOR};
+    u64 next_pc_{RESET_VECTOR};
 };
 
 }  // namespace riscv

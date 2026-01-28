@@ -13,11 +13,14 @@ using s16 = std::int16_t;
 using s32 = std::int32_t;
 using s64 = std::int64_t;
 
-constexpr u32 XLEN = 32;
+constexpr u32 XLEN = 64;
 constexpr u32 REGISTER_COUNT = 32;
-constexpr u32 DEFAULT_MEMORY_SIZE = 4 * 1024 * 1024;  // 4 MiB
-constexpr u32 RESET_VECTOR = 0x80000000;
+constexpr u64 DEFAULT_MEMORY_SIZE = 4ULL * 1024 * 1024;  // 4 MiB
+constexpr u64 RESET_VECTOR = 0x80000000ULL;
 
+inline constexpr u64 mask64(u32 bits) {
+    return (bits == 64) ? 0xFFFF'FFFF'FFFF'FFFFULL : ((1ULL << bits) - 1ULL);
+}
 inline constexpr u32 mask(u32 bits) {
     return (bits == 32) ? 0xFFFF'FFFFu : ((1u << bits) - 1u);
 }

@@ -71,7 +71,8 @@ CMakeFiles/riscv_core.dir/src/simulator.cpp.obj: \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/uses_allocator_args.h \
   F:/msys64/ucrt64/include/c++/15.1.0/tuple \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/ranges_util.h \
-  E:/RISC-V_Platform/include/riscv/memory.h \
+  E:/RISC-V_Platform/include/riscv/csr.h \
+  E:/RISC-V_Platform/include/riscv/types.h \
   F:/msys64/ucrt64/include/c++/15.1.0/cstdint \
   F:/msys64/ucrt64/lib/clang/20/include/stdint.h \
   F:/msys64/ucrt64/include/stdint.h F:/msys64/ucrt64/include/crtdefs.h \
@@ -82,6 +83,7 @@ CMakeFiles/riscv_core.dir/src/simulator.cpp.obj: \
   F:/msys64/ucrt64/include/vadefs.h \
   F:/msys64/ucrt64/include/sdks/_mingw_ddk.h \
   F:/msys64/ucrt64/lib/clang/20/include/__stddef_wint_t.h \
+  E:/RISC-V_Platform/include/riscv/memory.h \
   F:/msys64/ucrt64/include/c++/15.1.0/string \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/stringfwd.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/char_traits.h \
@@ -123,7 +125,6 @@ CMakeFiles/riscv_core.dir/src/simulator.cpp.obj: \
   F:/msys64/ucrt64/include/errno.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/charconv.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/basic_string.tcc \
-  E:/RISC-V_Platform/include/riscv/types.h \
   E:/RISC-V_Platform/include/riscv/pipeline.h \
   E:/RISC-V_Platform/include/riscv/decoder.h \
   E:/RISC-V_Platform/include/riscv/register_file.h \

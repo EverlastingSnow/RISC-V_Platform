@@ -133,9 +133,6 @@ CMakeFiles/riscv_core.dir/src/memory.cpp.obj: \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/ranges_algobase.h \
   F:/msys64/ucrt64/include/c++/15.1.0/pstl/glue_algorithm_defs.h \
   F:/msys64/ucrt64/include/c++/15.1.0/pstl/execution_defs.h \
-  F:/msys64/ucrt64/include/c++/15.1.0/cstring \
-  F:/msys64/ucrt64/include/string.h \
-  F:/msys64/ucrt64/include/sec_api/string_s.h \
   F:/msys64/ucrt64/include/c++/15.1.0/stdexcept \
   F:/msys64/ucrt64/include/c++/15.1.0/exception \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/exception_ptr.h \

@@ -2,9 +2,16 @@
 
 #include <optional>
 
+#include "riscv/csr.h"
 #include "riscv/decoder.h"
 #include "riscv/register_file.h"
 #include "riscv/types.h"
+
+#if defined(__SIZEOF_INT128__)
+#define RISCV_HAVE_INT128 1
+#else
+#define RISCV_HAVE_INT128 0
+#endif
 
 namespace riscv {
 namespace {
@@ -16,6 +23,12 @@ bool uses_rs1(InstructionKind kind) {
         case InstructionKind::JAL:
         case InstructionKind::FENCE:
         case InstructionKind::FENCE_I:
+        case InstructionKind::ECALL:
+        case InstructionKind::EBREAK:
+        case InstructionKind::MRET:
+        case InstructionKind::CSRRWI:
+        case InstructionKind::CSRRSI:
+        case InstructionKind::CSRRCI:
             return false;
         default:
             break;
@@ -28,6 +41,7 @@ bool uses_rs2(InstructionKind kind) {
         case InstructionKind::SB:
         case InstructionKind::SH:
         case InstructionKind::SW:
+        case InstructionKind::SD:
         case InstructionKind::ADD:
         case InstructionKind::SUB:
         case InstructionKind::SLL:
@@ -38,6 +52,24 @@ bool uses_rs2(InstructionKind kind) {
         case InstructionKind::SRA:
         case InstructionKind::OR:
         case InstructionKind::AND:
+        case InstructionKind::ADDW:
+        case InstructionKind::SUBW:
+        case InstructionKind::SLLW:
+        case InstructionKind::SRLW:
+        case InstructionKind::SRAW:
+        case InstructionKind::MUL:
+        case InstructionKind::MULH:
+        case InstructionKind::MULHSU:
+        case InstructionKind::MULHU:
+        case InstructionKind::DIV:
+        case InstructionKind::DIVU:
+        case InstructionKind::REM:
+        case InstructionKind::REMU:
+        case InstructionKind::MULW:
+        case InstructionKind::DIVW:
+        case InstructionKind::DIVUW:
+        case InstructionKind::REMW:
+        case InstructionKind::REMUW:
         case InstructionKind::BEQ:
         case InstructionKind::BNE:
         case InstructionKind::BLT:
@@ -59,11 +91,14 @@ bool uses_imm(InstructionKind kind) {
         case InstructionKind::LB:
         case InstructionKind::LH:
         case InstructionKind::LW:
+        case InstructionKind::LD:
         case InstructionKind::LBU:
         case InstructionKind::LHU:
+        case InstructionKind::LWU:
         case InstructionKind::SB:
         case InstructionKind::SH:
         case InstructionKind::SW:
+        case InstructionKind::SD:
         case InstructionKind::ADDI:
         case InstructionKind::SLTI:
         case InstructionKind::SLTIU:
@@ -73,6 +108,10 @@ bool uses_imm(InstructionKind kind) {
         case InstructionKind::SLLI:
         case InstructionKind::SRLI:
         case InstructionKind::SRAI:
+        case InstructionKind::ADDIW:
+        case InstructionKind::SLLIW:
+        case InstructionKind::SRLIW:
+        case InstructionKind::SRAIW:
         case InstructionKind::BEQ:
         case InstructionKind::BNE:
         case InstructionKind::BLT:
@@ -87,12 +126,12 @@ bool uses_imm(InstructionKind kind) {
     }
 }
 
-bool is_branch_taken(const DecodedInstruction& instr, u32 lhs, u32 rhs) {
+bool is_branch_taken(const DecodedInstruction& instr, u64 lhs, u64 rhs) {
     switch (instr.kind) {
         case InstructionKind::BEQ: return lhs == rhs;
         case InstructionKind::BNE: return lhs != rhs;
-        case InstructionKind::BLT: return static_cast<s32>(lhs) < static_cast<s32>(rhs);
-        case InstructionKind::BGE: return static_cast<s32>(lhs) >= static_cast<s32>(rhs);
+        case InstructionKind::BLT: return static_cast<s64>(lhs) < static_cast<s64>(rhs);
+        case InstructionKind::BGE: return static_cast<s64>(lhs) >= static_cast<s64>(rhs);
         case InstructionKind::BLTU: return lhs < rhs;
         case InstructionKind::BGEU: return lhs >= rhs;
         default: return false;
@@ -101,11 +140,11 @@ bool is_branch_taken(const DecodedInstruction& instr, u32 lhs, u32 rhs) {
 
 }  // namespace
 
-RISCVSimulator::RISCVSimulator() : memory_(DEFAULT_MEMORY_SIZE, RESET_VECTOR) {
+RISCVSimulator::RISCVSimulator() : memory_(static_cast<std::size_t>(DEFAULT_MEMORY_SIZE), RESET_VECTOR) {
     reset();
 }
 
-void RISCVSimulator::load_program(const std::vector<u8>& binary, u32 offset) {
+void RISCVSimulator::load_program(const std::vector<u8>& binary, u64 offset) {
     memory_.reset();
     memory_.load_program(binary, offset);
     reset();
@@ -113,6 +152,7 @@ void RISCVSimulator::load_program(const std::vector<u8>& binary, u32 offset) {
 
 void RISCVSimulator::reset() {
     regs_.reset();
+    csr_.reset();
     if_id_ = {};
     id_ex_ = {};
     ex_mem_ = {};
@@ -207,6 +247,19 @@ void RISCVSimulator::stage_id() {
         return;
     }
 
+    // Store-then-load hazard: previous is store, current is load to same address.
+    // Stall one cycle: do NOT advance load into ID/EX (insert bubble). The store remains in id_ex_
+    // this cycle; stage_ex() still runs with that id_ex_ and advances the store to ex_mem_.
+    // After update, id_ex_ becomes bubble, so next cycle we don't stall and the load enters ID/EX.
+    const bool st_ld_hazard = id_ex_.valid && id_ex_.instr.is_store() && instr.is_load() &&
+                              instr.rs1 == id_ex_.instr.rs1 && instr.imm == id_ex_.instr.imm;
+
+    if (st_ld_hazard) {
+        stall_fetch_ = true;
+        next_id_ex_.valid = false;  // bubble; store 本周期仍在 id_ex_ 中，stage_ex 会把它推进到 ex_mem_
+        return;
+    }
+
     next_id_ex_.valid = true;
     next_id_ex_.instr = instr;
     next_id_ex_.rs1_value = uses_rs1(instr.kind) ? regs_.read(instr.rs1) : 0;
@@ -216,14 +269,16 @@ void RISCVSimulator::stage_id() {
 void RISCVSimulator::stage_ex() {
     next_ex_mem_ = {};
     if (!id_ex_.valid) {
+        // Bubble in ID/EX (e.g. after store-then-load stall): pass through EX/MEM
+        next_ex_mem_ = ex_mem_;
         return;
     }
 
     const auto instr = id_ex_.instr;
-    u32 rs1_val = id_ex_.rs1_value;
-    u32 rs2_val = id_ex_.rs2_value;
+    u64 rs1_val = id_ex_.rs1_value;
+    u64 rs2_val = id_ex_.rs2_value;
 
-    auto forward_from_ex_mem = [&](u32 reg) -> std::optional<u32> {
+    auto forward_from_ex_mem = [&](u32 reg) -> std::optional<u64> {
         if (!ex_mem_.valid || !ex_mem_.instr.writes_rd() || ex_mem_.instr.is_load()) {
             return std::nullopt;
         }
@@ -233,7 +288,7 @@ void RISCVSimulator::stage_ex() {
         return std::nullopt;
     };
 
-    auto forward_from_mem_wb = [&](u32 reg) -> std::optional<u32> {
+    auto forward_from_mem_wb = [&](u32 reg) -> std::optional<u64> {
         if (!mem_wb_.valid || !mem_wb_.instr.writes_rd()) {
             return std::nullopt;
         }
@@ -259,26 +314,26 @@ void RISCVSimulator::stage_ex() {
         }
     }
 
-    u32 alu_result = 0;
+    u64 alu_result = 0;
     bool branch_taken = false;
-    u32 branch_target = 0;
+    u64 branch_target = 0;
 
     switch (instr.kind) {
         case InstructionKind::LUI:
-            alu_result = instr.imm;
+            alu_result = static_cast<u64>(static_cast<s64>(static_cast<s32>(instr.imm & 0xFFFFFFFFu)));
             break;
         case InstructionKind::AUIPC:
-            alu_result = instr.pc + instr.imm;
+            alu_result = instr.pc + static_cast<u64>(instr.imm);
             break;
         case InstructionKind::JAL:
             alu_result = instr.pc + 4;
             branch_taken = true;
-            branch_target = instr.pc + instr.imm;
+            branch_target = instr.pc + static_cast<u64>(instr.imm);
             break;
         case InstructionKind::JALR:
             alu_result = instr.pc + 4;
             branch_taken = true;
-            branch_target = (rs1_val + instr.imm) & ~1u;
+            branch_target = (rs1_val + static_cast<u64>(instr.imm)) & ~1ULL;
             break;
         case InstructionKind::BEQ:
         case InstructionKind::BNE:
@@ -287,16 +342,19 @@ void RISCVSimulator::stage_ex() {
         case InstructionKind::BLTU:
         case InstructionKind::BGEU:
             branch_taken = is_branch_taken(instr, rs1_val, rs2_val);
-            branch_target = instr.pc + instr.imm;
+            branch_target = instr.pc + static_cast<u64>(instr.imm);
             break;
         case InstructionKind::LB:
         case InstructionKind::LH:
         case InstructionKind::LW:
+        case InstructionKind::LD:
         case InstructionKind::LBU:
         case InstructionKind::LHU:
+        case InstructionKind::LWU:
         case InstructionKind::SB:
         case InstructionKind::SH:
         case InstructionKind::SW:
+        case InstructionKind::SD:
         case InstructionKind::ADDI:
         case InstructionKind::SLTI:
         case InstructionKind::SLTIU:
@@ -306,44 +364,74 @@ void RISCVSimulator::stage_ex() {
         case InstructionKind::SLLI:
         case InstructionKind::SRLI:
         case InstructionKind::SRAI:
+        case InstructionKind::ADDIW:
+        case InstructionKind::SLLIW:
+        case InstructionKind::SRLIW:
+        case InstructionKind::SRAIW:
             switch (instr.kind) {
                 case InstructionKind::LB:
                 case InstructionKind::LH:
                 case InstructionKind::LW:
+                case InstructionKind::LD:
                 case InstructionKind::LBU:
                 case InstructionKind::LHU:
+                case InstructionKind::LWU:
                 case InstructionKind::SB:
                 case InstructionKind::SH:
                 case InstructionKind::SW:
-                    alu_result = rs1_val + instr.imm;
+                case InstructionKind::SD:
+                    alu_result = rs1_val + static_cast<u64>(instr.imm);
                     break;
                 case InstructionKind::ADDI:
-                    alu_result = rs1_val + instr.imm;
+                    alu_result = rs1_val + static_cast<u64>(instr.imm);
                     break;
+        case InstructionKind::ADDIW: {
+            const s32 r = static_cast<s32>(static_cast<s64>(rs1_val) + static_cast<s64>(instr.imm));
+            alu_result = static_cast<u64>(static_cast<s64>(r));
+            break;
+        }
                 case InstructionKind::SLTI:
-                    alu_result = static_cast<s32>(rs1_val) < instr.imm ? 1u : 0u;
+                    alu_result = static_cast<s64>(rs1_val) < instr.imm ? 1ULL : 0ULL;
                     break;
                 case InstructionKind::SLTIU:
-                    alu_result = rs1_val < static_cast<u32>(instr.imm) ? 1u : 0u;
+                    alu_result = rs1_val < static_cast<u64>(instr.imm) ? 1ULL : 0ULL;
                     break;
                 case InstructionKind::XORI:
-                    alu_result = rs1_val ^ instr.imm;
+                    alu_result = rs1_val ^ static_cast<u64>(instr.imm);
                     break;
                 case InstructionKind::ORI:
-                    alu_result = rs1_val | instr.imm;
+                    alu_result = rs1_val | static_cast<u64>(instr.imm);
                     break;
                 case InstructionKind::ANDI:
-                    alu_result = rs1_val & instr.imm;
+                    alu_result = rs1_val & static_cast<u64>(instr.imm);
                     break;
                 case InstructionKind::SLLI:
-                    alu_result = rs1_val << (instr.imm & 0x1F);
+                    alu_result = rs1_val << (static_cast<u32>(instr.imm) & 0x3F);
                     break;
                 case InstructionKind::SRLI:
-                    alu_result = rs1_val >> (instr.imm & 0x1F);
+                    alu_result = rs1_val >> (static_cast<u32>(instr.imm) & 0x3F);
                     break;
                 case InstructionKind::SRAI:
-                    alu_result = static_cast<u32>(static_cast<s32>(rs1_val) >> (instr.imm & 0x1F));
+                    alu_result = static_cast<u64>(static_cast<s64>(rs1_val) >> (static_cast<u32>(instr.imm) & 0x3F));
                     break;
+        case InstructionKind::SLLIW: {
+            const u32 sh = static_cast<u32>(instr.imm) & 0x1F;
+            const u32 r = static_cast<u32>(rs1_val) << sh;
+            alu_result = static_cast<u64>(static_cast<s64>(static_cast<s32>(r)));
+            break;
+        }
+        case InstructionKind::SRLIW: {
+            const u32 sh = static_cast<u32>(instr.imm) & 0x1F;
+            const u32 r = static_cast<u32>(rs1_val) >> sh;
+            alu_result = static_cast<u64>(static_cast<s64>(static_cast<s32>(r)));
+            break;
+        }
+        case InstructionKind::SRAIW: {
+            const u32 sh = static_cast<u32>(instr.imm) & 0x1F;
+            const s32 r = static_cast<s32>(static_cast<u32>(rs1_val));
+            alu_result = static_cast<u64>(static_cast<s64>(r >> sh));
+            break;
+        }
                 default:
                     break;
             }
@@ -354,30 +442,170 @@ void RISCVSimulator::stage_ex() {
         case InstructionKind::SUB:
             alu_result = rs1_val - rs2_val;
             break;
-        case InstructionKind::SLL:
-            alu_result = rs1_val << (rs2_val & 0x1F);
+        case InstructionKind::ADDW: {
+            const s32 r = static_cast<s32>(static_cast<u32>(rs1_val) + static_cast<u32>(rs2_val));
+            alu_result = static_cast<u64>(static_cast<s64>(r));
             break;
+        }
+        case InstructionKind::SUBW: {
+            const s32 r = static_cast<s32>(static_cast<u32>(rs1_val) - static_cast<u32>(rs2_val));
+            alu_result = static_cast<u64>(static_cast<s64>(r));
+            break;
+        }
+        case InstructionKind::SLL:
+            alu_result = rs1_val << (rs2_val & 0x3F);
+            break;
+        case InstructionKind::SLLW: {
+            const u32 sh = static_cast<u32>(rs2_val) & 0x1F;
+            const u32 r = static_cast<u32>(rs1_val) << sh;
+            alu_result = static_cast<u64>(static_cast<s64>(static_cast<s32>(r)));
+            break;
+        }
         case InstructionKind::SLT:
-            alu_result = static_cast<s32>(rs1_val) < static_cast<s32>(rs2_val) ? 1u : 0u;
+            alu_result = static_cast<s64>(rs1_val) < static_cast<s64>(rs2_val) ? 1ULL : 0ULL;
             break;
         case InstructionKind::SLTU:
-            alu_result = rs1_val < rs2_val ? 1u : 0u;
+            alu_result = rs1_val < rs2_val ? 1ULL : 0ULL;
             break;
         case InstructionKind::XOR:
             alu_result = rs1_val ^ rs2_val;
             break;
         case InstructionKind::SRL:
-            alu_result = rs1_val >> (rs2_val & 0x1F);
+            alu_result = rs1_val >> (rs2_val & 0x3F);
             break;
+        case InstructionKind::SRLW: {
+            const u32 sh = static_cast<u32>(rs2_val) & 0x1F;
+            const u32 r = static_cast<u32>(rs1_val) >> sh;
+            alu_result = static_cast<u64>(static_cast<s64>(static_cast<s32>(r)));
+            break;
+        }
         case InstructionKind::SRA:
-            alu_result = static_cast<u32>(static_cast<s32>(rs1_val) >> (rs2_val & 0x1F));
+            alu_result = static_cast<u64>(static_cast<s64>(rs1_val) >> (rs2_val & 0x3F));
             break;
+        case InstructionKind::SRAW: {
+            const u32 sh = static_cast<u32>(rs2_val) & 0x1F;
+            const s32 r = static_cast<s32>(static_cast<u32>(rs1_val));
+            alu_result = static_cast<u64>(static_cast<s64>(r >> sh));
+            break;
+        }
         case InstructionKind::OR:
             alu_result = rs1_val | rs2_val;
             break;
         case InstructionKind::AND:
             alu_result = rs1_val & rs2_val;
             break;
+        case InstructionKind::MUL:
+            alu_result = rs1_val * rs2_val;
+            break;
+#if RISCV_HAVE_INT128
+        case InstructionKind::MULH: {
+            const __int128 p = static_cast<__int128>(static_cast<s64>(rs1_val)) *
+                               static_cast<__int128>(static_cast<s64>(rs2_val));
+            alu_result = static_cast<u64>(static_cast<__uint128_t>(p) >> 64);
+            break;
+        }
+        case InstructionKind::MULHSU: {
+            const __int128 p = static_cast<__int128>(static_cast<s64>(rs1_val)) *
+                               static_cast<__uint128_t>(rs2_val);
+            alu_result = static_cast<u64>(static_cast<__uint128_t>(p) >> 64);
+            break;
+        }
+        case InstructionKind::MULHU: {
+            const __uint128_t p = static_cast<__uint128_t>(rs1_val) * static_cast<__uint128_t>(rs2_val);
+            alu_result = static_cast<u64>(p >> 64);
+            break;
+        }
+#else
+        case InstructionKind::MULH:
+        case InstructionKind::MULHSU:
+        case InstructionKind::MULHU: {
+            // 无 128 位整数时的回退：64x64 低 64 位乘法，高 64 位用 32 位分段计算
+            const u64 a_lo = rs1_val & 0xFFFFFFFFULL, a_hi = rs1_val >> 32;
+            const u64 b_lo = rs2_val & 0xFFFFFFFFULL, b_hi = rs2_val >> 32;
+            const u64 p0 = a_lo * b_lo;
+            const u64 p1 = a_lo * b_hi;
+            const u64 p2 = a_hi * b_lo;
+            const u64 p3 = a_hi * b_hi;
+            const u64 mid = p1 + p2;
+            const u64 lo = p0 + (mid << 32);
+            const u64 c = (lo < p0) ? 1ULL : 0ULL;
+            u64 hi = p3 + (mid >> 32) + c;
+            if (instr.kind == InstructionKind::MULH) {
+                // 有符号积的高 64 位：从无符号积修正
+                if (static_cast<s64>(rs1_val) < 0) hi -= rs2_val;
+                if (static_cast<s64>(rs2_val) < 0) hi -= rs1_val;
+            } else if (instr.kind == InstructionKind::MULHSU) {
+                if (static_cast<s64>(rs1_val) < 0) hi -= rs2_val;
+            }
+            alu_result = hi;
+            break;
+        }
+#endif
+        case InstructionKind::DIV: {
+            const s64 a = static_cast<s64>(rs1_val);
+            const s64 b = static_cast<s64>(rs2_val);
+            if (b == 0) {
+                alu_result = static_cast<u64>(-1);
+            } else if (a == (static_cast<s64>(1ULL << 63)) && b == -1) {
+                alu_result = static_cast<u64>(static_cast<s64>(1ULL << 63));
+            } else {
+                alu_result = static_cast<u64>(static_cast<s64>(a / b));
+            }
+            break;
+        }
+        case InstructionKind::DIVU: {
+            const u64 b = rs2_val;
+            alu_result = (b == 0) ? ~0ULL : (rs1_val / b);
+            break;
+        }
+        case InstructionKind::REM: {
+            const s64 a = static_cast<s64>(rs1_val);
+            const s64 b = static_cast<s64>(rs2_val);
+            alu_result = (b == 0) ? rs1_val : static_cast<u64>(static_cast<s64>(a % b));
+            break;
+        }
+        case InstructionKind::REMU: {
+            const u64 b = rs2_val;
+            alu_result = (b == 0) ? rs1_val : (rs1_val % b);
+            break;
+        }
+        case InstructionKind::MULW: {
+            const s32 a = static_cast<s32>(static_cast<u32>(rs1_val));
+            const s32 b = static_cast<s32>(static_cast<u32>(rs2_val));
+            alu_result = static_cast<u64>(static_cast<s64>(static_cast<s32>(a * b)));
+            break;
+        }
+        case InstructionKind::DIVW: {
+            const s32 a = static_cast<s32>(static_cast<u32>(rs1_val));
+            const s32 b = static_cast<s32>(static_cast<u32>(rs2_val));
+            if (b == 0) {
+                alu_result = static_cast<u64>(-1);
+            } else if (a == (static_cast<s32>(0x80000000u)) && b == -1) {
+                alu_result = static_cast<u64>(static_cast<s64>(static_cast<s32>(0x80000000u)));
+            } else {
+                alu_result = static_cast<u64>(static_cast<s64>(static_cast<s32>(a / b)));
+            }
+            break;
+        }
+        case InstructionKind::DIVUW: {
+            const u32 a = static_cast<u32>(rs1_val);
+            const u32 b = static_cast<u32>(rs2_val);
+            alu_result = (b == 0) ? ~0ULL : static_cast<u64>(static_cast<u32>(a / b));
+            break;
+        }
+        case InstructionKind::REMW: {
+            const s32 a = static_cast<s32>(static_cast<u32>(rs1_val));
+            const s32 b = static_cast<s32>(static_cast<u32>(rs2_val));
+            alu_result = (b == 0) ? static_cast<u64>(static_cast<s64>(a))
+                                 : static_cast<u64>(static_cast<s64>(static_cast<s32>(a % b)));
+            break;
+        }
+        case InstructionKind::REMUW: {
+            const u32 a = static_cast<u32>(rs1_val);
+            const u32 b = static_cast<u32>(rs2_val);
+            alu_result = (b == 0) ? static_cast<u64>(a) : static_cast<u64>(static_cast<u32>(a % b));
+            break;
+        }
         case InstructionKind::FENCE:
         case InstructionKind::FENCE_I:
             alu_result = 0;
@@ -387,13 +615,49 @@ void RISCVSimulator::stage_ex() {
             // 在EX阶段不立刻停止，只标记结果，让指令顺利流到WB阶段再停机
             alu_result = 0;
             break;
+        case InstructionKind::MRET: {
+            // MRET：跳转到 mepc
+            branch_taken = true;
+            branch_target = csr_.read(CSR_MEPC);
+            alu_result = 0;
+            break;
+        }
+        case InstructionKind::CSRRW:
+        case InstructionKind::CSRRS:
+        case InstructionKind::CSRRC:
+        case InstructionKind::CSRRWI:
+        case InstructionKind::CSRRSI:
+        case InstructionKind::CSRRCI: {
+            const u32 csr_addr = static_cast<u32>(instr.imm) & 0xFFFu;
+            const u64 old_val = csr_.read(csr_addr);
+            u64 new_val = old_val;
+            if (instr.kind == InstructionKind::CSRRW || instr.kind == InstructionKind::CSRRWI) {
+                new_val = (instr.kind == InstructionKind::CSRRWI)
+                              ? static_cast<u64>(instr.rs1)
+                              : rs1_val;
+                csr_.write(csr_addr, new_val);
+            } else if (instr.kind == InstructionKind::CSRRS || instr.kind == InstructionKind::CSRRSI) {
+                const u64 src = (instr.kind == InstructionKind::CSRRSI)
+                                    ? static_cast<u64>(instr.rs1)
+                                    : rs1_val;
+                new_val = old_val | src;
+                if (src != 0) csr_.write(csr_addr, new_val);
+            } else {
+                const u64 mask = (instr.kind == InstructionKind::CSRRCI)
+                                    ? static_cast<u64>(instr.rs1)
+                                    : rs1_val;
+                new_val = old_val & ~mask;
+                if (mask != 0) csr_.write(csr_addr, new_val);
+            }
+            alu_result = old_val;
+            break;
+        }
         default:
-            // 理论上不应该到这里：将其视为非法指令
-            halted_ = true;
-            halt_reason_ = HaltReason::InvalidInstruction;
-            halt_pc_ = instr.pc;
-            halt_inst_ = instr.raw;
-            return;
+            // 非法指令不在此处停机，传至 WB 再停机，保证前一条 ECALL/EBREAK 能先提交
+            alu_result = 0;
+            branch_taken = false;
+            branch_target = 0;
+            break;
     }
 
     next_ex_mem_.valid = id_ex_.valid;
@@ -418,51 +682,145 @@ void RISCVSimulator::stage_mem() {
     }
 
     const auto instr = ex_mem_.instr;
-    u32 value = ex_mem_.alu_result;
+    u64 value = ex_mem_.alu_result;
+    const u64 addr = ex_mem_.alu_result;
 
-    if (instr.is_load()) {
-        switch (instr.kind) {
-            case InstructionKind::LB:
-                value = static_cast<u32>(sign_extend<s32>(memory_.read8(ex_mem_.alu_result), 8));
-                break;
-            case InstructionKind::LH:
-                value = static_cast<u32>(sign_extend<s32>(memory_.read16(ex_mem_.alu_result), 16));
-                break;
-            case InstructionKind::LW:
-                value = memory_.read32(ex_mem_.alu_result);
-                break;
-            case InstructionKind::LBU:
-                value = memory_.read8(ex_mem_.alu_result);
-                break;
-            case InstructionKind::LHU:
-                value = memory_.read16(ex_mem_.alu_result);
-                break;
-            default:
-                break;
-        }
-    } else if (instr.is_store()) {
+    // 先处理 store（写入内存），再处理 load（读取内存），确保 store-then-load 的数据一致性
+    u64 store_data = 0;
+    if (instr.is_store()) {
+        store_data = ex_mem_.rs2_value;
         switch (instr.kind) {
             case InstructionKind::SB:
-                memory_.write8(ex_mem_.alu_result, static_cast<u8>(ex_mem_.rs2_value & 0xFF));
+                memory_.write8(addr, static_cast<u8>(store_data & 0xFF));
                 break;
             case InstructionKind::SH:
-                memory_.write16(ex_mem_.alu_result, static_cast<u16>(ex_mem_.rs2_value & 0xFFFF));
+                memory_.write16(addr, static_cast<u16>(store_data & 0xFFFF));
                 break;
             case InstructionKind::SW:
-                memory_.write32(ex_mem_.alu_result, ex_mem_.rs2_value);
+                memory_.write32(addr, static_cast<u32>(store_data & 0xFFFFFFFFu));
+                break;
+            case InstructionKind::SD:
+                memory_.write64(addr, store_data);
                 break;
             default:
                 break;
         }
     }
 
+    if (instr.is_load()) {
+        // Store-forwarding: use store data when load and store share the same address
+        bool forwarded = false;
+        u64 store_val = 0;
+
+        // Case 1: store is in mem_wb_ (store wrote in previous cycle)
+        if (mem_wb_.valid && mem_wb_.instr.is_store() && mem_wb_.mem_addr == addr) {
+            store_val = mem_wb_.store_data;
+            forwarded = true;
+        }
+        // Case 2: store is in id_ex_ (load one stage ahead of store) — use store's rs2 with forwarding
+        if (!forwarded && id_ex_.valid && id_ex_.instr.is_store()) {
+            const u64 store_addr = id_ex_.rs1_value + static_cast<u64>(static_cast<s64>(id_ex_.instr.imm));
+            if (store_addr == addr) {
+                u32 sr = id_ex_.instr.rs2;
+                if (sr == 0)
+                    store_val = 0;
+                else if (mem_wb_.valid && mem_wb_.instr.writes_rd() && mem_wb_.instr.rd == sr)
+                    store_val = mem_wb_.wb_value;
+                else if (ex_mem_.valid && ex_mem_.instr.writes_rd() && !ex_mem_.instr.is_load() && ex_mem_.instr.rd == sr)
+                    store_val = ex_mem_.alu_result;
+                else
+                    store_val = id_ex_.rs2_value;
+                forwarded = true;
+            }
+        }
+
+        if (forwarded) {
+            // 地址匹配，根据 load 类型从 store 的数据中提取
+            switch (instr.kind) {
+                case InstructionKind::LB:
+                    value = static_cast<u64>(static_cast<s64>(static_cast<s8>(store_val & 0xFF)));
+                    break;
+                case InstructionKind::LH:
+                    value = static_cast<u64>(static_cast<s64>(static_cast<s16>(store_val & 0xFFFF)));
+                    break;
+                case InstructionKind::LW:
+                    value = static_cast<u64>(sign_extend<s64>(static_cast<u32>(store_val & 0xFFFFFFFFu), 32));
+                    break;
+                case InstructionKind::LD:
+                    value = store_val;
+                    break;
+                case InstructionKind::LBU:
+                    value = store_val & 0xFF;
+                    break;
+                case InstructionKind::LHU:
+                    value = store_val & 0xFFFF;
+                    break;
+                case InstructionKind::LWU:
+                    value = store_val & 0xFFFFFFFFu;
+                    break;
+                default:
+                    forwarded = false;
+                    break;
+            }
+        }
+
+        if (!forwarded) {
+            // 没有 forwarding，从内存读取（store 已在上面写入，所以能读到正确的值）
+            switch (instr.kind) {
+                case InstructionKind::LB:
+                    value = static_cast<u64>(static_cast<s64>(static_cast<s8>(memory_.read8(addr))));
+                    break;
+                case InstructionKind::LH:
+                    value = static_cast<u64>(static_cast<s64>(static_cast<s16>(memory_.read16(addr))));
+                    break;
+                case InstructionKind::LW:
+                    value = static_cast<u64>(sign_extend<s64>(memory_.read32(addr), 32));
+                    break;
+                case InstructionKind::LD:
+                    value = memory_.read64(addr);
+                    break;
+                case InstructionKind::LBU:
+                    value = memory_.read8(addr);
+                    break;
+                case InstructionKind::LHU:
+                    value = memory_.read16(addr);
+                    break;
+                case InstructionKind::LWU:
+                    value = static_cast<u64>(memory_.read32(addr));
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
     next_mem_wb_.valid = ex_mem_.valid;
     next_mem_wb_.instr = instr;
     next_mem_wb_.wb_value = value;
+    // 保存地址和数据，用于下一个周期的 store-forwarding
+    if (instr.is_store() || instr.is_load()) {
+        next_mem_wb_.mem_addr = addr;
+        if (instr.is_store()) {
+            next_mem_wb_.store_data = store_data;
+        } else {
+            next_mem_wb_.store_data = 0;  // load 不需要保存数据
+        }
+    } else {
+        next_mem_wb_.mem_addr = 0;
+        next_mem_wb_.store_data = 0;
+    }
 }
 
 void RISCVSimulator::stage_wb() {
     if (!mem_wb_.valid) {
+        return;
+    }
+    // 非法指令在 WB 阶段停机，避免单条 ECALL 后取到的 0 在 EX 提前停机覆盖 Ecall
+    if (!mem_wb_.instr.is_valid()) {
+        halted_ = true;
+        halt_reason_ = HaltReason::InvalidInstruction;
+        halt_pc_ = mem_wb_.instr.pc;
+        halt_inst_ = mem_wb_.instr.raw;
         return;
     }
     if (mem_wb_.instr.writes_rd()) {
@@ -472,11 +830,9 @@ void RISCVSimulator::stage_wb() {
     // 在WB阶段“提交”ECALL/EBREAK：等前面的指令都写回后再停机
     if (mem_wb_.instr.is_system()) {
         halted_ = true;
-        if (mem_wb_.instr.kind == InstructionKind::ECALL) {
-            halt_reason_ = HaltReason::Ecall;
-        } else if (mem_wb_.instr.kind == InstructionKind::EBREAK) {
-            halt_reason_ = HaltReason::Ebreak;
-        }
+        halt_reason_ = (mem_wb_.instr.kind == InstructionKind::ECALL)
+                           ? HaltReason::Ecall
+                           : HaltReason::Ebreak;
         halt_pc_ = mem_wb_.instr.pc;
         halt_inst_ = mem_wb_.instr.raw;
     }
@@ -506,18 +862,18 @@ void RISCVSimulator::update_pipeline_registers() {
 
 void RISCVSimulator::update_pipeline_state() {
     pipeline_state_.cycle = cycle_;
-    pipeline_state_.fetch = {if_id_.valid, if_id_.pc, if_id_.inst, 0, 0, 0, 0};
+    pipeline_state_.fetch = {if_id_.valid, if_id_.pc, if_id_.inst, 0, 0, 0, static_cast<u64>(0)};
     pipeline_state_.decode = {id_ex_.valid, id_ex_.instr.pc, id_ex_.instr.raw, id_ex_.instr.rd,
-                              id_ex_.instr.rs1, id_ex_.instr.rs2, static_cast<u32>(id_ex_.instr.imm)};
+                              id_ex_.instr.rs1, id_ex_.instr.rs2, static_cast<u64>(id_ex_.instr.imm)};
     pipeline_state_.execute = {ex_mem_.valid, ex_mem_.instr.pc, ex_mem_.instr.raw, ex_mem_.instr.rd,
                                ex_mem_.instr.rs1, ex_mem_.instr.rs2,
-                               static_cast<u32>(ex_mem_.instr.imm)};
+                               static_cast<u64>(ex_mem_.instr.imm)};
     pipeline_state_.memory = {mem_wb_.valid, ex_mem_.instr.pc, ex_mem_.instr.raw, ex_mem_.instr.rd,
                               ex_mem_.instr.rs1, ex_mem_.instr.rs2,
-                              static_cast<u32>(ex_mem_.instr.imm)};
+                              static_cast<u64>(ex_mem_.instr.imm)};
     pipeline_state_.writeback = {mem_wb_.valid, mem_wb_.instr.pc, mem_wb_.instr.raw,
                                  mem_wb_.instr.rd, mem_wb_.instr.rs1, mem_wb_.instr.rs2,
-                                 static_cast<u32>(mem_wb_.instr.imm)};
+                                 static_cast<u64>(mem_wb_.instr.imm)};
 }
 
 }  // namespace riscv

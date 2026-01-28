@@ -1,4 +1,6 @@
 file(REMOVE_RECURSE
+  "CMakeFiles/riscv_core.dir/src/csr.cpp.obj"
+  "CMakeFiles/riscv_core.dir/src/csr.cpp.obj.d"
   "CMakeFiles/riscv_core.dir/src/decoder.cpp.obj"
   "CMakeFiles/riscv_core.dir/src/decoder.cpp.obj.d"
   "CMakeFiles/riscv_core.dir/src/memory.cpp.obj"

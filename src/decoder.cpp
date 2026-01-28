@@ -29,6 +29,10 @@ constexpr s32 imm_u(u32 raw) {
     return static_cast<s32>(raw & 0xFFFFF000);
 }
 
+constexpr u32 imm_csr(u32 raw) {
+    return (raw >> 20) & 0xFFFu;  // CSR 地址是 12 位无符号，不做符号扩展
+}
+
 constexpr s32 imm_j(u32 raw) {
     const u32 bits19_12 = (raw >> 12) & 0xFF;
     const u32 bit11 = (raw >> 20) & 0x1;
@@ -39,6 +43,8 @@ constexpr s32 imm_j(u32 raw) {
 }
 
 bool is_shift_imm_valid(u32 funct7) {
+    // 注意：RV64 的 I 型移位使用 shamt[5:0]，bit25 是 shamt[5]，不能简单用 bits[31:25] 当 funct7 判断。
+    // 该函数仅保留给 RV32 风格检查用（funct7=0 或 0x20），RV64 解码处会用 funct6(bits[31:26]) 判断。
     return funct7 == 0b0000000 || funct7 == 0b0100000;
 }
 
@@ -78,6 +84,28 @@ bool DecodedInstruction::writes_rd() const {
         case InstructionKind::SRA:
         case InstructionKind::OR:
         case InstructionKind::AND:
+        case InstructionKind::ADDIW:
+        case InstructionKind::SLLIW:
+        case InstructionKind::SRLIW:
+        case InstructionKind::SRAIW:
+        case InstructionKind::ADDW:
+        case InstructionKind::SUBW:
+        case InstructionKind::SLLW:
+        case InstructionKind::SRLW:
+        case InstructionKind::SRAW:
+        case InstructionKind::MUL:
+        case InstructionKind::MULH:
+        case InstructionKind::MULHSU:
+        case InstructionKind::MULHU:
+        case InstructionKind::DIV:
+        case InstructionKind::DIVU:
+        case InstructionKind::REM:
+        case InstructionKind::REMU:
+        case InstructionKind::MULW:
+        case InstructionKind::DIVW:
+        case InstructionKind::DIVUW:
+        case InstructionKind::REMW:
+        case InstructionKind::REMUW:
         case InstructionKind::CSRRW:
         case InstructionKind::CSRRS:
         case InstructionKind::CSRRC:
@@ -113,8 +141,10 @@ bool DecodedInstruction::is_load() const {
         case InstructionKind::LB:
         case InstructionKind::LH:
         case InstructionKind::LW:
+        case InstructionKind::LD:
         case InstructionKind::LBU:
         case InstructionKind::LHU:
+        case InstructionKind::LWU:
             return true;
         default:
             return false;
@@ -126,6 +156,7 @@ bool DecodedInstruction::is_store() const {
         case InstructionKind::SB:
         case InstructionKind::SH:
         case InstructionKind::SW:
+        case InstructionKind::SD:
             return true;
         default:
             return false;
@@ -150,7 +181,7 @@ bool DecodedInstruction::is_system() const {
     return kind == InstructionKind::ECALL || kind == InstructionKind::EBREAK;
 }
 
-DecodedInstruction decode(u32 raw, u32 pc) {
+DecodedInstruction decode(u32 raw, u64 pc) {
     DecodedInstruction inst{};
     inst.raw = raw;
     inst.pc = pc;
@@ -206,6 +237,8 @@ DecodedInstruction decode(u32 raw, u32 pc) {
                 case 0b010: inst.kind = InstructionKind::LW; break;
                 case 0b100: inst.kind = InstructionKind::LBU; break;
                 case 0b101: inst.kind = InstructionKind::LHU; break;
+                case 0b011: inst.kind = InstructionKind::LD; break;
+                case 0b110: inst.kind = InstructionKind::LWU; break;
                 default: break;
             }
             break;
@@ -216,6 +249,7 @@ DecodedInstruction decode(u32 raw, u32 pc) {
                 case 0b000: inst.kind = InstructionKind::SB; break;
                 case 0b001: inst.kind = InstructionKind::SH; break;
                 case 0b010: inst.kind = InstructionKind::SW; break;
+                case 0b011: inst.kind = InstructionKind::SD; break;
                 default: break;
             }
             break;
@@ -230,14 +264,16 @@ DecodedInstruction decode(u32 raw, u32 pc) {
                 case 0b110: inst.kind = InstructionKind::ORI; break;
                 case 0b111: inst.kind = InstructionKind::ANDI; break;
                 case 0b001:
-                    if (inst.funct7 == 0b0000000) {
+                    // RV64: SLLI 的判断应看 funct6(bits[31:26])==0；bit25 是 shamt[5]
+                    if (((raw >> 26) & 0x3Fu) == 0b000000) {
                         inst.kind = InstructionKind::SLLI;
                     }
                     break;
                 case 0b101:
-                    if (inst.funct7 == 0b0000000) {
+                    // RV64: SRLI/SRAI 也使用 funct6(bits[31:26]) 区分：0=SRLI, 0x10= SRAI
+                    if (((raw >> 26) & 0x3Fu) == 0b000000) {
                         inst.kind = InstructionKind::SRLI;
-                    } else if (inst.funct7 == 0b0100000) {
+                    } else if (((raw >> 26) & 0x3Fu) == 0b010000) {
                         inst.kind = InstructionKind::SRAI;
                     }
                     break;
@@ -245,46 +281,102 @@ DecodedInstruction decode(u32 raw, u32 pc) {
                     break;
             }
             break;
-        case 0b0110011:  // Register ALU
-            inst.format = InstructionFormat::R;
+        case 0b0011011:  // OP-IMM-32 (RV64 "W" immediate ops)
+            inst.format = InstructionFormat::I;
+            inst.imm = imm_i(raw);
             switch (inst.funct3) {
-                case 0b000:
-                    if (inst.funct7 == 0b0000000) {
-                        inst.kind = InstructionKind::ADD;
-                    } else if (inst.funct7 == 0b0100000) {
-                        inst.kind = InstructionKind::SUB;
-                    }
-                    break;
+                case 0b000: inst.kind = InstructionKind::ADDIW; break;
                 case 0b001:
-                    if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::SLL;
-                    break;
-                case 0b010:
-                    if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::SLT;
-                    break;
-                case 0b011:
-                    if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::SLTU;
-                    break;
-                case 0b100:
-                    if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::XOR;
+                    if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::SLLIW;
                     break;
                 case 0b101:
-                    if (inst.funct7 == 0b0000000) {
-                        inst.kind = InstructionKind::SRL;
-                    } else if (inst.funct7 == 0b0100000) {
-                        inst.kind = InstructionKind::SRA;
-                    }
-                    break;
-                case 0b110:
-                    if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::OR;
-                    break;
-                case 0b111:
-                    if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::AND;
+                    if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::SRLIW;
+                    else if (inst.funct7 == 0b0100000) inst.kind = InstructionKind::SRAIW;
                     break;
                 default:
                     break;
             }
+            break;
+        case 0b0110011:  // Register ALU / M 扩展
+            inst.format = InstructionFormat::R;
             if (is_m_extension(inst.funct7)) {
-                inst.kind = InstructionKind::INVALID;  // M扩展未实现
+                switch (inst.funct3) {
+                    case 0b000: inst.kind = InstructionKind::MUL; break;
+                    case 0b001: inst.kind = InstructionKind::MULH; break;
+                    case 0b010: inst.kind = InstructionKind::MULHSU; break;
+                    case 0b011: inst.kind = InstructionKind::MULHU; break;
+                    case 0b100: inst.kind = InstructionKind::DIV; break;
+                    case 0b101: inst.kind = InstructionKind::DIVU; break;
+                    case 0b110: inst.kind = InstructionKind::REM; break;
+                    case 0b111: inst.kind = InstructionKind::REMU; break;
+                    default: break;
+                }
+            } else {
+                switch (inst.funct3) {
+                    case 0b000:
+                        if (inst.funct7 == 0b0000000) {
+                            inst.kind = InstructionKind::ADD;
+                        } else if (inst.funct7 == 0b0100000) {
+                            inst.kind = InstructionKind::SUB;
+                        }
+                        break;
+                    case 0b001:
+                        if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::SLL;
+                        break;
+                    case 0b010:
+                        if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::SLT;
+                        break;
+                    case 0b011:
+                        if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::SLTU;
+                        break;
+                    case 0b100:
+                        if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::XOR;
+                        break;
+                    case 0b101:
+                        if (inst.funct7 == 0b0000000) {
+                            inst.kind = InstructionKind::SRL;
+                        } else if (inst.funct7 == 0b0100000) {
+                            inst.kind = InstructionKind::SRA;
+                        }
+                        break;
+                    case 0b110:
+                        if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::OR;
+                        break;
+                    case 0b111:
+                        if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::AND;
+                        break;
+                    default:
+                        break;
+                }
+            }
+            break;
+        case 0b0111011:  // OP-32 (RV64 "W" register ops) / M 扩展 W
+            inst.format = InstructionFormat::R;
+            if (is_m_extension(inst.funct7)) {
+                switch (inst.funct3) {
+                    case 0b000: inst.kind = InstructionKind::MULW; break;
+                    case 0b100: inst.kind = InstructionKind::DIVW; break;
+                    case 0b101: inst.kind = InstructionKind::DIVUW; break;
+                    case 0b110: inst.kind = InstructionKind::REMW; break;
+                    case 0b111: inst.kind = InstructionKind::REMUW; break;
+                    default: break;
+                }
+            } else {
+                switch (inst.funct3) {
+                    case 0b000:
+                        if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::ADDW;
+                        else if (inst.funct7 == 0b0100000) inst.kind = InstructionKind::SUBW;
+                        break;
+                    case 0b001:
+                        if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::SLLW;
+                        break;
+                    case 0b101:
+                        if (inst.funct7 == 0b0000000) inst.kind = InstructionKind::SRLW;
+                        else if (inst.funct7 == 0b0100000) inst.kind = InstructionKind::SRAW;
+                        break;
+                    default:
+                        break;
+                }
             }
             break;
         case 0b0001111:  // MISC-MEM
@@ -298,14 +390,18 @@ DecodedInstruction decode(u32 raw, u32 pc) {
             break;
         case 0b1110011:  // SYSTEM/CSR
             inst.format = InstructionFormat::I;
-            inst.imm = imm_i(raw);
             if (inst.funct3 == 0) {
-                if ((raw >> 20) == 0) {
+                inst.imm = imm_i(raw);
+                const u32 imm12 = (raw >> 20) & 0xFFF;
+                if (imm12 == 0) {
                     inst.kind = InstructionKind::ECALL;
-                } else if ((raw >> 20) == 1) {
+                } else if (imm12 == 1) {
                     inst.kind = InstructionKind::EBREAK;
+                } else if (imm12 == 0x302) {  // MRET: imm12=0x302 (mret = 0x30200073)
+                    inst.kind = InstructionKind::MRET;
                 }
             } else {
+                inst.imm = static_cast<s32>(imm_csr(raw));  // CSR 地址 0..4095
                 switch (inst.funct3) {
                     case 0b001: inst.kind = InstructionKind::CSRRW; break;
                     case 0b010: inst.kind = InstructionKind::CSRRS; break;
@@ -343,11 +439,14 @@ std::string to_string(InstructionKind kind) {
         case InstructionKind::LB: return "LB";
         case InstructionKind::LH: return "LH";
         case InstructionKind::LW: return "LW";
+        case InstructionKind::LD: return "LD";
         case InstructionKind::LBU: return "LBU";
         case InstructionKind::LHU: return "LHU";
+        case InstructionKind::LWU: return "LWU";
         case InstructionKind::SB: return "SB";
         case InstructionKind::SH: return "SH";
         case InstructionKind::SW: return "SW";
+        case InstructionKind::SD: return "SD";
         case InstructionKind::ADDI: return "ADDI";
         case InstructionKind::SLTI: return "SLTI";
         case InstructionKind::SLTIU: return "SLTIU";
@@ -371,6 +470,29 @@ std::string to_string(InstructionKind kind) {
         case InstructionKind::FENCE_I: return "FENCE.I";
         case InstructionKind::ECALL: return "ECALL";
         case InstructionKind::EBREAK: return "EBREAK";
+        case InstructionKind::MRET: return "MRET";
+        case InstructionKind::ADDIW: return "ADDIW";
+        case InstructionKind::SLLIW: return "SLLIW";
+        case InstructionKind::SRLIW: return "SRLIW";
+        case InstructionKind::SRAIW: return "SRAIW";
+        case InstructionKind::ADDW: return "ADDW";
+        case InstructionKind::SUBW: return "SUBW";
+        case InstructionKind::SLLW: return "SLLW";
+        case InstructionKind::SRLW: return "SRLW";
+        case InstructionKind::SRAW: return "SRAW";
+        case InstructionKind::MUL: return "MUL";
+        case InstructionKind::MULH: return "MULH";
+        case InstructionKind::MULHSU: return "MULHSU";
+        case InstructionKind::MULHU: return "MULHU";
+        case InstructionKind::DIV: return "DIV";
+        case InstructionKind::DIVU: return "DIVU";
+        case InstructionKind::REM: return "REM";
+        case InstructionKind::REMU: return "REMU";
+        case InstructionKind::MULW: return "MULW";
+        case InstructionKind::DIVW: return "DIVW";
+        case InstructionKind::DIVUW: return "DIVUW";
+        case InstructionKind::REMW: return "REMW";
+        case InstructionKind::REMUW: return "REMUW";
         case InstructionKind::CSRRW: return "CSRRW";
         case InstructionKind::CSRRS: return "CSRRS";
         case InstructionKind::CSRRC: return "CSRRC";
