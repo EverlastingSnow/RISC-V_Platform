@@ -63,6 +63,9 @@ enum class InstructionKind {
     ECALL,
     EBREAK,
     MRET,  // 特权返回（riscv-tests 启动代码需要）
+    SRET,  // 超级监视器返回
+    WFI,   // 等待中断
+    SFENCE_VMA,  // 虚拟内存屏障
 
     // RV64I "W" 指令（OP-IMM-32 / OP-32）：结果截断为 32 位再符号扩展到 64 位
     ADDIW,

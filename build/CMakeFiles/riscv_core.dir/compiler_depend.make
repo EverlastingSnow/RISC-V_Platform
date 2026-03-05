@@ -162,12 +162,15 @@ CMakeFiles/riscv_core.dir/src/memory.cpp.obj: E:/RISC-V_Platform/src/memory.cpp 
   F:/msys64/ucrt64/include/_mingw_off_t.h \
   F:/msys64/ucrt64/include/_mingw_secapi.h \
   F:/msys64/ucrt64/include/_mingw_stat64.h \
+  F:/msys64/ucrt64/include/_timeval.h \
   F:/msys64/ucrt64/include/c++/15.1.0/algorithm \
   F:/msys64/ucrt64/include/c++/15.1.0/backward/binders.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bit \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/algorithmfwd.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/alloc_traits.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/allocator.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/bits/basic_ios.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/bits/basic_ios.tcc \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/basic_string.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/basic_string.tcc \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/char_traits.h \
@@ -183,7 +186,13 @@ CMakeFiles/riscv_core.dir/src/memory.cpp.obj: E:/RISC-V_Platform/src/memory.cpp 
   F:/msys64/ucrt64/include/c++/15.1.0/bits/functional_hash.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/hash_bytes.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/invoke.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/bits/ios_base.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/bits/istream.tcc \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/iterator_concepts.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/bits/locale_classes.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/bits/locale_classes.tcc \
+  F:/msys64/ucrt64/include/c++/15.1.0/bits/locale_facets.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/bits/locale_facets.tcc \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/localefwd.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/max_size_type.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/memory_resource.h \
@@ -191,6 +200,8 @@ CMakeFiles/riscv_core.dir/src/memory.cpp.obj: E:/RISC-V_Platform/src/memory.cpp 
   F:/msys64/ucrt64/include/c++/15.1.0/bits/move.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/nested_exception.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/new_allocator.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/bits/ostream.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/bits/ostream.tcc \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/ostream_insert.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/postypes.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/predefined_ops.h \
@@ -217,6 +228,8 @@ CMakeFiles/riscv_core.dir/src/memory.cpp.obj: E:/RISC-V_Platform/src/memory.cpp 
   F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_tempbuf.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_uninitialized.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_vector.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/bits/streambuf.tcc \
+  F:/msys64/ucrt64/include/c++/15.1.0/bits/streambuf_iterator.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/string_view.tcc \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/stringfwd.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/uniform_int_dist.h \
@@ -235,34 +248,49 @@ CMakeFiles/riscv_core.dir/src/memory.cpp.obj: E:/RISC-V_Platform/src/memory.cpp 
   F:/msys64/ucrt64/include/c++/15.1.0/cstdio \
   F:/msys64/ucrt64/include/c++/15.1.0/cstdlib \
   F:/msys64/ucrt64/include/c++/15.1.0/cwchar \
+  F:/msys64/ucrt64/include/c++/15.1.0/cwctype \
   F:/msys64/ucrt64/include/c++/15.1.0/debug/assertions.h \
   F:/msys64/ucrt64/include/c++/15.1.0/debug/debug.h \
   F:/msys64/ucrt64/include/c++/15.1.0/exception \
   F:/msys64/ucrt64/include/c++/15.1.0/ext/alloc_traits.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/ext/atomicity.h \
   F:/msys64/ucrt64/include/c++/15.1.0/ext/numeric_traits.h \
   F:/msys64/ucrt64/include/c++/15.1.0/ext/string_conversions.h \
   F:/msys64/ucrt64/include/c++/15.1.0/ext/type_traits.h \
   F:/msys64/ucrt64/include/c++/15.1.0/initializer_list \
+  F:/msys64/ucrt64/include/c++/15.1.0/ios \
   F:/msys64/ucrt64/include/c++/15.1.0/iosfwd \
+  F:/msys64/ucrt64/include/c++/15.1.0/iostream \
+  F:/msys64/ucrt64/include/c++/15.1.0/istream \
   F:/msys64/ucrt64/include/c++/15.1.0/new \
   F:/msys64/ucrt64/include/c++/15.1.0/numbers \
+  F:/msys64/ucrt64/include/c++/15.1.0/ostream \
   F:/msys64/ucrt64/include/c++/15.1.0/pstl/execution_defs.h \
   F:/msys64/ucrt64/include/c++/15.1.0/pstl/glue_algorithm_defs.h \
   F:/msys64/ucrt64/include/c++/15.1.0/pstl/pstl_config.h \
   F:/msys64/ucrt64/include/c++/15.1.0/stdexcept \
   F:/msys64/ucrt64/include/c++/15.1.0/stdlib.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/streambuf \
   F:/msys64/ucrt64/include/c++/15.1.0/string \
   F:/msys64/ucrt64/include/c++/15.1.0/string_view \
+  F:/msys64/ucrt64/include/c++/15.1.0/system_error \
   F:/msys64/ucrt64/include/c++/15.1.0/tuple \
   F:/msys64/ucrt64/include/c++/15.1.0/type_traits \
   F:/msys64/ucrt64/include/c++/15.1.0/typeinfo \
   F:/msys64/ucrt64/include/c++/15.1.0/vector \
+  F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/atomic_word.h \
   F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/c++allocator.h \
   F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/c++config.h \
   F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/c++locale.h \
   F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/cpu_defines.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/ctype_base.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/ctype_inline.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/error_constants.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/gthr-default.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/gthr.h \
   F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/os_defines.h \
   F:/msys64/ucrt64/include/corecrt.h \
+  F:/msys64/ucrt64/include/corecrt_startup.h \
   F:/msys64/ucrt64/include/corecrt_stdio_config.h \
   F:/msys64/ucrt64/include/corecrt_wctype.h \
   F:/msys64/ucrt64/include/corecrt_wstdlib.h \
@@ -272,17 +300,30 @@ CMakeFiles/riscv_core.dir/src/memory.cpp.obj: E:/RISC-V_Platform/src/memory.cpp 
   F:/msys64/ucrt64/include/limits.h \
   F:/msys64/ucrt64/include/locale.h \
   F:/msys64/ucrt64/include/malloc.h \
+  F:/msys64/ucrt64/include/process.h \
+  F:/msys64/ucrt64/include/pthread.h \
+  F:/msys64/ucrt64/include/pthread_compat.h \
+  F:/msys64/ucrt64/include/pthread_signal.h \
+  F:/msys64/ucrt64/include/pthread_time.h \
+  F:/msys64/ucrt64/include/pthread_unistd.h \
+  F:/msys64/ucrt64/include/sched.h \
   F:/msys64/ucrt64/include/sdks/_mingw_ddk.h \
   F:/msys64/ucrt64/include/sec_api/stdio_s.h \
   F:/msys64/ucrt64/include/sec_api/stdlib_s.h \
+  F:/msys64/ucrt64/include/sec_api/sys/timeb_s.h \
   F:/msys64/ucrt64/include/sec_api/wchar_s.h \
+  F:/msys64/ucrt64/include/signal.h \
   F:/msys64/ucrt64/include/stddef.h \
   F:/msys64/ucrt64/include/stdint.h \
   F:/msys64/ucrt64/include/stdio.h \
   F:/msys64/ucrt64/include/stdlib.h \
   F:/msys64/ucrt64/include/swprintf.inl \
+  F:/msys64/ucrt64/include/sys/timeb.h \
+  F:/msys64/ucrt64/include/sys/types.h \
+  F:/msys64/ucrt64/include/time.h \
   F:/msys64/ucrt64/include/vadefs.h \
   F:/msys64/ucrt64/include/wchar.h \
+  F:/msys64/ucrt64/include/wctype.h \
   F:/msys64/ucrt64/lib/clang/20/include/__stddef_header_macro.h \
   F:/msys64/ucrt64/lib/clang/20/include/__stddef_max_align_t.h \
   F:/msys64/ucrt64/lib/clang/20/include/__stddef_null.h \
@@ -900,49 +941,13 @@ E:/RISC-V_Platform/src/memory.cpp:
 
 E:/RISC-V_Platform/include/riscv/memory.h:
 
+F:/msys64/ucrt64/include/_timeval.h:
+
 F:/msys64/ucrt64/include/c++/15.1.0/algorithm:
 
 F:/msys64/ucrt64/include/c++/15.1.0/bits/algorithmfwd.h:
 
-F:/msys64/ucrt64/include/c++/15.1.0/bits/ranges_algo.h:
-
-F:/msys64/ucrt64/include/c++/15.1.0/bits/ranges_algobase.h:
-
-F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_algo.h:
-
-F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_heap.h:
-
-F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_tempbuf.h:
-
-F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_uninitialized.h:
-
-F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_vector.h:
-
-F:/msys64/ucrt64/include/c++/15.1.0/bits/uniform_int_dist.h:
-
-F:/msys64/ucrt64/include/c++/15.1.0/bits/vector.tcc:
-
-F:/msys64/ucrt64/include/c++/15.1.0/pstl/execution_defs.h:
-
-F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/atomic_word.h:
-
-F:/msys64/ucrt64/include/c++/15.1.0/vector:
-
-E:/RISC-V_Platform/src/register_file.cpp:
-
-E:/RISC-V_Platform/include/riscv/register_file.h:
-
-E:/RISC-V_Platform/src/simulator.cpp:
-
-E:/RISC-V_Platform/include/riscv/pipeline.h:
-
-E:/RISC-V_Platform/include/riscv/simulator.h:
-
-F:/msys64/ucrt64/include/_timeval.h:
-
 F:/msys64/ucrt64/include/c++/15.1.0/bits/basic_ios.tcc:
-
-F:/msys64/ucrt64/include/c++/15.1.0/bits/enable_special_members.h:
 
 F:/msys64/ucrt64/include/c++/15.1.0/bits/ios_base.h:
 
@@ -960,17 +965,39 @@ F:/msys64/ucrt64/include/c++/15.1.0/bits/locale_facets.tcc:
 
 F:/msys64/ucrt64/include/c++/15.1.0/bits/ostream.tcc:
 
+F:/msys64/ucrt64/include/c++/15.1.0/bits/ranges_algo.h:
+
+F:/msys64/ucrt64/include/c++/15.1.0/bits/ranges_algobase.h:
+
+F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_algo.h:
+
+F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_heap.h:
+
+F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_tempbuf.h:
+
+F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_uninitialized.h:
+
+F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_vector.h:
+
 F:/msys64/ucrt64/include/c++/15.1.0/bits/streambuf_iterator.h:
+
+F:/msys64/ucrt64/include/c++/15.1.0/bits/uniform_int_dist.h:
+
+F:/msys64/ucrt64/include/c++/15.1.0/bits/vector.tcc:
 
 F:/msys64/ucrt64/include/c++/15.1.0/ext/atomicity.h:
 
 F:/msys64/ucrt64/include/c++/15.1.0/iostream:
 
-F:/msys64/ucrt64/include/c++/15.1.0/optional:
-
 F:/msys64/ucrt64/include/c++/15.1.0/ostream:
 
+F:/msys64/ucrt64/include/c++/15.1.0/pstl/execution_defs.h:
+
 F:/msys64/ucrt64/include/c++/15.1.0/system_error:
+
+F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/atomic_word.h:
+
+F:/msys64/ucrt64/include/c++/15.1.0/vector:
 
 F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/ctype_base.h:
 
@@ -1003,3 +1030,17 @@ F:/msys64/ucrt64/include/sys/types.h:
 F:/msys64/ucrt64/include/time.h:
 
 F:/msys64/ucrt64/include/wctype.h:
+
+E:/RISC-V_Platform/src/register_file.cpp:
+
+E:/RISC-V_Platform/include/riscv/register_file.h:
+
+E:/RISC-V_Platform/src/simulator.cpp:
+
+E:/RISC-V_Platform/include/riscv/pipeline.h:
+
+E:/RISC-V_Platform/include/riscv/simulator.h:
+
+F:/msys64/ucrt64/include/c++/15.1.0/bits/enable_special_members.h:
+
+F:/msys64/ucrt64/include/c++/15.1.0/optional:

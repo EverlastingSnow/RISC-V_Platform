@@ -180,7 +180,7 @@ bool DecodedInstruction::is_csr() const {
 }
 
 bool DecodedInstruction::is_system() const {
-    return kind == InstructionKind::ECALL || kind == InstructionKind::EBREAK;
+    return kind == InstructionKind::ECALL || kind == InstructionKind::EBREAK || kind == InstructionKind::MRET;
 }
 
 DecodedInstruction decode(u32 raw, u64 pc) {
@@ -401,6 +401,12 @@ DecodedInstruction decode(u32 raw, u64 pc) {
                     inst.kind = InstructionKind::EBREAK;
                 } else if (imm12 == 0x302) {  // MRET: imm12=0x302 (mret = 0x30200073)
                     inst.kind = InstructionKind::MRET;
+                } else if (imm12 == 0x102) {  // SRET: imm12=0x102
+                    inst.kind = InstructionKind::SRET;
+                } else if (imm12 == 0x105) {  // WFI: imm12=0x105
+                    inst.kind = InstructionKind::WFI;
+                } else if (imm12 == 0x120 && inst.funct3 == 0) {  // SFENCE.VMA
+                    inst.kind = InstructionKind::SFENCE_VMA;
                 }
             } else {
                 inst.imm = static_cast<s32>(imm_csr(raw));  // CSR 地址 0..4095

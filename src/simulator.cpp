@@ -275,8 +275,8 @@ void RISCVSimulator::stage_id() {
 void RISCVSimulator::stage_ex() {
     next_ex_mem_ = {};
     if (!id_ex_.valid) {
-        // Bubble in ID/EX (e.g. after store-then-load stall): pass through EX/MEM
-        next_ex_mem_ = ex_mem_;
+        // Bubble in ID/EX: keep next_ex_mem_ empty (invalid), don't copy ex_mem_
+        // This prevents the previous instruction from being re-executed
         return;
     }
 
@@ -716,26 +716,13 @@ void RISCVSimulator::stage_mem() {
         bool forwarded = false;
         u64 store_val = 0;
 
-        auto get_store_forward_value = [&](u32 rs2_reg, u64 store_addr) -> std::optional<u64> {
-            if (rs2_reg == 0) {
-                return 0;
-            }
-            if (mem_wb_.valid && mem_wb_.instr.writes_rd() && mem_wb_.instr.rd == rs2_reg) {
-                return mem_wb_.wb_value;
-            }
-            if (ex_mem_.valid && ex_mem_.instr.writes_rd() && !ex_mem_.instr.is_load() && ex_mem_.instr.rd == rs2_reg) {
-                return ex_mem_.alu_result;
-            }
-            return std::nullopt;
-        };
-
+        // 检查 EX/MEM 阶段的 store 指令 - 直接使用 rs2_value
         if (ex_mem_.valid && ex_mem_.instr.is_store() && ex_mem_.alu_result == addr) {
-            if (auto val = get_store_forward_value(ex_mem_.instr.rs2, addr)) {
-                store_val = *val;
-                forwarded = true;
-            }
+            store_val = ex_mem_.rs2_value;
+            forwarded = true;
         }
 
+        // 检查 MEM/WB 阶段的 store 指令
         if (!forwarded && mem_wb_.valid && mem_wb_.instr.is_store() && mem_wb_.mem_addr == addr) {
             store_val = mem_wb_.store_data;
             forwarded = true;
@@ -831,8 +818,9 @@ void RISCVSimulator::stage_wb() {
         regs_.write(mem_wb_.instr.rd, mem_wb_.wb_value);
     }
 
-    // 在WB阶段“提交”ECALL/EBREAK：等前面的指令都写回后再停机
-    if (mem_wb_.instr.is_system()) {
+    // 在WB阶段"提交"ECALL/EBREAK：等前面的指令都写回后再停机
+    // 注意：MRET/SRET等也是system指令，但不应触发halt
+    if (mem_wb_.instr.kind == InstructionKind::ECALL || mem_wb_.instr.kind == InstructionKind::EBREAK) {
         halted_ = true;
         halt_reason_ = (mem_wb_.instr.kind == InstructionKind::ECALL)
                            ? HaltReason::Ecall

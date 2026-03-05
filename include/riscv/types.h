@@ -15,7 +15,7 @@ using s64 = std::int64_t;
 
 constexpr u32 XLEN = 64;
 constexpr u32 REGISTER_COUNT = 32;
-constexpr u64 DEFAULT_MEMORY_SIZE = 4ULL * 1024 * 1024;  // 4 MiB
+constexpr u64 DEFAULT_MEMORY_SIZE = 256ULL * 1024 * 1024;  // 256 MiB
 constexpr u64 RESET_VECTOR = 0x80000000ULL;
 
 inline constexpr u64 mask64(u32 bits) {

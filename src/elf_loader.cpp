@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 
 namespace riscv {
 
@@ -236,9 +237,124 @@ ElfLoadResult load_elf64(const std::string& path, u64 memory_base) {
         out.error = "段起始地址低于 memory base，无法加载";
         return out;
     }
-
+    
+    // 首先回到文件开头读取 section headers
+    file.clear();
+    file.seekg(0);
+    
+    Elf64_Ehdr ehdr_copy{};
+    file.read(reinterpret_cast<char*>(&ehdr_copy), sizeof(ehdr_copy));
+    
+    // 检查是否有 section headers
+    if (ehdr_copy.e_shoff != 0 && ehdr_copy.e_shnum != 0) {
+        // 读取 section string table
+        std::vector<u8> shstrtab;
+        if (ehdr_copy.e_shstrndx != SHN_UNDEF) {
+            file.seekg(ehdr_copy.e_shoff + ehdr_copy.e_shstrndx * ehdr_copy.e_shentsize);
+            Elf64_Shdr shstrtab_hdr{};
+            file.read(reinterpret_cast<char*>(&shstrtab_hdr), sizeof(shstrtab_hdr));
+            if (file.gcount() == sizeof(shstrtab_hdr) && shstrtab_hdr.sh_size > 0) {
+                shstrtab.resize(shstrtab_hdr.sh_size);
+                file.seekg(shstrtab_hdr.sh_offset);
+                file.read(reinterpret_cast<char*>(shstrtab.data()), shstrtab_hdr.sh_size);
+            }
+        }
+        
+        // 收集所有 loadable sections
+        struct SecInfo { std::string name; u64 addr; u64 size; u64 offset; };
+        std::vector<SecInfo> secs;
+        
+        // std::cerr << "[DEBUG] Total sections in ELF: " << ehdr_copy.e_shnum << "\n";
+        
+        for (std::uint16_t i = 0; i < ehdr_copy.e_shnum; ++i) {
+            file.seekg(ehdr_copy.e_shoff + i * ehdr_copy.e_shentsize);
+            Elf64_Shdr shdr{};
+            file.read(reinterpret_cast<char*>(&shdr), sizeof(shdr));
+            
+            if ((shdr.sh_flags & SHF_ALLOC) && shdr.sh_size > 0) {
+                std::string name;
+                if (shdr.sh_name < shstrtab.size()) {
+                    name = reinterpret_cast<const char*>(shstrtab.data() + shdr.sh_name);
+                }
+                
+                // 打印所有 sections
+                // std::cerr << "[DEBUG] Section: " << name << " addr=0x" << std::hex << shdr.sh_addr 
+                //           << " file_offset=0x" << shdr.sh_offset
+                //           << " size=0x" << shdr.sh_size << std::dec << "\n";
+                
+                secs.push_back({name, shdr.sh_addr, shdr.sh_size, shdr.sh_offset});
+            }
+        }
+        
+        if (!secs.empty()) {
+            // 使用 sections 计算范围并加载
+            u64 sec_vaddr_min = 0xFFFFFFFFFFFFFFFFULL;
+            u64 sec_vaddr_max = 0;
+            for (const auto& s : secs) {
+                sec_vaddr_min = (std::min)(sec_vaddr_min, s.addr);
+                sec_vaddr_max = (std::max)(sec_vaddr_max, s.addr + s.size);
+            }
+            
+            // std::cerr << "[DEBUG] sec_vaddr_min=0x" << std::hex << sec_vaddr_min 
+            //           << " sec_vaddr_max=0x" << sec_vaddr_max << std::dec << "\n";
+            
+            out.load_offset = sec_vaddr_min - memory_base;
+            u64 sec_total_size = sec_vaddr_max - sec_vaddr_min;
+            out.binary.assign(static_cast<std::size_t>(sec_total_size), 0);
+            
+            // std::cerr << "[DEBUG] binary.size=0x" << std::hex << out.binary.size() 
+            //           << " data ptr=0x" << (void*)out.binary.data() << std::dec << "\n";
+            
+            // 保存 binary data 指针
+            const u8* original_data_ptr = out.binary.data();
+            
+            // 加载每个 section
+            for (const auto& s : secs) {
+                u64 off = s.addr - sec_vaddr_min;
+                // std::cerr << "[DEBUG] Loading section " << s.name << " to off=0x" << std::hex << off 
+                //           << " (addr=0x" << s.addr << " size=0x" << s.size << ")" << std::dec << "\n";
+                
+                file.seekg(s.offset);
+                file.read(reinterpret_cast<char*>(out.binary.data() + off), s.size);
+                
+                // 检查 data 指针是否改变
+                // if (out.binary.data() != original_data_ptr) {
+                //     std::cerr << "[ERROR] Binary data pointer changed from 0x" << (void*)original_data_ptr 
+                //               << " to 0x" << (void*)out.binary.data() << " after loading " << s.name << "!\n";
+                // }
+                
+                // 验证读取后的前几个字节
+                // std::cerr << "[DEBUG] After read " << s.name << " at off=0x" << std::hex << off << ": ";
+                // for (size_t j = 0; j < std::min(size_t(8), (size_t)s.size); ++j) {
+                //     std::cerr << std::setw(2) << std::setfill('0') << (int)out.binary[off + j] << " ";
+                // }
+                // std::cerr << std::dec << "\n";
+            }
+            
+            // 验证 - 在所有 sections 加载后
+            // std::cerr << "[DEBUG] Final binary ptr=0x" << (void*)out.binary.data() << std::dec << "\n";
+            // 只在 binary 足够大时验证
+            // if (out.binary.size() > 0x3003) {
+            //     std::cerr << "[DEBUG] Final binary[0x2000]=" << std::hex << (int)out.binary[0x2000] 
+            //               << " [0x2047]=" << (int)out.binary[0x2047]
+            //               << " [0x3000]=" << (int)out.binary[0x3000] 
+            //               << " [0x3001]=" << (int)out.binary[0x3001]
+            //               << " [0x3002]=" << (int)out.binary[0x3002]
+            //               << " [0x3003]=" << (int)out.binary[0x3003] << std::dec << "\n";
+            // } else {
+            //     std::cerr << "[DEBUG] Final binary size=0x" << std::hex << out.binary.size() << std::dec << "\n";
+            // }
+            
+            out.success = true;
+            return out;
+        }
+    }
+    
+    // Fallback: 使用程序段
     out.load_offset = vaddr_min - memory_base;
-    out.binary.assign(static_cast<std::size_t>(vaddr_max - vaddr_min), 0);
+    const u64 total_size = vaddr_max - vaddr_min;
+    out.binary.assign(static_cast<std::size_t>(total_size), 0);
+
     for (const auto& seg : segments) {
         u64 vaddr = seg.first;
         const std::vector<u8>& data = seg.second;
@@ -249,6 +365,7 @@ ElfLoadResult load_elf64(const std::string& path, u64 memory_base) {
         }
         std::copy(data.begin(), data.end(), out.binary.begin() + static_cast<std::size_t>(off));
     }
+
     out.success = true;
     return out;
 }

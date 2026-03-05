@@ -8,6 +8,26 @@
 
 namespace riscv {
 
+// ELF Constants
+constexpr u32 SHN_UNDEF = 0;
+constexpr u64 SHF_ALLOC = 0x2;
+constexpr u32 SHT_PROGBITS = 1;
+constexpr u32 SHT_NOBITS = 8;
+
+// ELF Section Header (64-bit)
+struct Elf64_Shdr {
+    u32 sh_name;
+    u32 sh_type;
+    u64 sh_flags;
+    u64 sh_addr;
+    u64 sh_offset;
+    u64 sh_size;
+    u32 sh_link;
+    u32 sh_info;
+    u64 sh_addralign;
+    u64 sh_entsize;
+};
+
 // 从 ELF 文件中加载 PT_LOAD 段，得到可在 load_program(binary, offset) 中使用的
 // 连续二进制与相对 base 的偏移。
 struct ElfLoadResult {

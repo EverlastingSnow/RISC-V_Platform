@@ -2,7 +2,6 @@
 
 namespace riscv {
 
-// RISC-V 特权规范中的 M 模式 CSR 地址（12 位）
 namespace CsrAddr {
 constexpr u32 MSTATUS = 0x300;
 constexpr u32 MISA = 0x301;
@@ -13,6 +12,13 @@ constexpr u32 MEPC = 0x341;
 constexpr u32 MCAUSE = 0x342;
 constexpr u32 MTVAL = 0x343;
 constexpr u32 MIP = 0x344;
+
+constexpr u32 SSTATUS = 0x100;
+constexpr u32 SSCRATCH = 0x140;
+constexpr u32 SEPC = 0x141;
+constexpr u32 SCAUSE = 0x142;
+constexpr u32 STVAL = 0x143;
+constexpr u32 STVEC = 0x105;
 }  // namespace CsrAddr
 
 CSR::CSR() {
@@ -27,6 +33,13 @@ void CSR::reset() {
     mepc_ = 0;
     mcause_ = 0;
     mip_ = 0;
+
+    sstatus_ = 0;
+    sscratch_ = 0;
+    sepc_ = 0;
+    scause_ = 0;
+    stval_ = 0;
+    stvec_ = 0;
 }
 
 bool CSR::is_implemented(u32 addr) const {
@@ -40,9 +53,16 @@ bool CSR::is_implemented(u32 addr) const {
         case CsrAddr::MIP:
             return true;
         case CsrAddr::MISA:
-            return true;  // 只读，返回 MISA 值
+            return true;
         case CsrAddr::MTVAL:
-            return true;  // 可读可写，简单实现
+            return true;
+        case CsrAddr::SSTATUS:
+        case CsrAddr::SSCRATCH:
+        case CsrAddr::SEPC:
+        case CsrAddr::SCAUSE:
+        case CsrAddr::STVAL:
+        case CsrAddr::STVEC:
+            return true;
         default:
             return false;
     }
@@ -53,8 +73,7 @@ u64 CSR::read(u32 addr) const {
         case CsrAddr::MSTATUS:
             return mstatus_;
         case CsrAddr::MISA:
-            // RV64IM: M=0x40 (M extension), I=0x1, 64->0x60 in MXL
-            return (2ULL << 62) | (0x41ULL << 0);  // MXL=2 (64), M+I
+            return (2ULL << 62) | (0x41ULL << 0);
         case CsrAddr::MIE:
             return mie_;
         case CsrAddr::MTVEC:
@@ -66,9 +85,21 @@ u64 CSR::read(u32 addr) const {
         case CsrAddr::MCAUSE:
             return mcause_;
         case CsrAddr::MTVAL:
-            return 0;  // 简化：不维护 mtval
+            return 0;
         case CsrAddr::MIP:
             return mip_;
+        case CsrAddr::SSTATUS:
+            return sstatus_;
+        case CsrAddr::SSCRATCH:
+            return sscratch_;
+        case CsrAddr::SEPC:
+            return sepc_;
+        case CsrAddr::SCAUSE:
+            return scause_;
+        case CsrAddr::STVAL:
+            return stval_;
+        case CsrAddr::STVEC:
+            return stvec_;
         default:
             return 0;
     }
@@ -89,7 +120,7 @@ void CSR::write(u32 addr, u64 value) {
             mscratch_ = value;
             break;
         case CsrAddr::MEPC:
-            mepc_ = value & ~1ULL;  // 最低位保留为 0（对齐）
+            mepc_ = value & ~1ULL;
             break;
         case CsrAddr::MCAUSE:
             mcause_ = value;
@@ -99,7 +130,24 @@ void CSR::write(u32 addr, u64 value) {
             break;
         case CsrAddr::MISA:
         case CsrAddr::MTVAL:
-            // MISA 只读；MTVAL 此处不维护
+            break;
+        case CsrAddr::SSTATUS:
+            sstatus_ = value;
+            break;
+        case CsrAddr::SSCRATCH:
+            sscratch_ = value;
+            break;
+        case CsrAddr::SEPC:
+            sepc_ = value & ~1ULL;
+            break;
+        case CsrAddr::SCAUSE:
+            scause_ = value;
+            break;
+        case CsrAddr::STVAL:
+            stval_ = value;
+            break;
+        case CsrAddr::STVEC:
+            stvec_ = value;
             break;
         default:
             break;

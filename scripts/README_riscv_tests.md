@@ -22,3 +22,21 @@ cmake --build . --target run_riscv_tests
 ```
 
 注意：本模拟器为 RV64，当前仅支持 RV64I 中除 CSR 外的指令，未实现 M 扩展等，故 `rv64um-p-*`、`rv64si-*` 等出现 FAIL 或 TIMEOUT 属正常。ELF32（rv32*）也会被自动识别并加载。
+
+
+
+\# 测试 rv64ui 组
+
+run_riscv_tests.exe --isa rv64ui
+
+\# 测试 rv64ui 和 rv64um 两组
+
+run_riscv_tests.exe --isa rv64ui,rv64um
+
+\# 测试所有组
+
+run_riscv_tests.exe --isa
+
+\# 指定目录
+
+run_riscv_tests.exe --dir "e:\RISC-V_Platform\isa"

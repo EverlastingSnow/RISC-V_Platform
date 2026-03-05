@@ -32,6 +32,12 @@ public:
 
 private:
     [[nodiscard]] std::size_t translate(u64 address) const;
+    [[nodiscard]] u16 read16_unaligned_slow(u64 address) const;
+    [[nodiscard]] u32 read32_unaligned_slow(u64 address) const;
+    [[nodiscard]] u64 read64_unaligned_slow(u64 address) const;
+    void write16_unaligned_slow(u64 address, u16 value);
+    void write32_unaligned_slow(u64 address, u32 value);
+    void write64_unaligned_slow(u64 address, u64 value);
 
     std::vector<u8> data_;
     u64 base_address_;
