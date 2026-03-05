@@ -799,10 +799,12 @@ int run_one_rv64ui_elf(const std::string& elf_path) {
         return -1;  // 文件不存在或加载失败，当作 skip
     RISCVSimulator sim;
     sim.load_program(res.binary, res.load_offset);
+    
+    const std::string test_name = rv64ui_elf_stem(elf_path);
+    
     sim.run(static_cast<u32>(MAX_RV64UI_CYCLES));
     const auto& r = sim.registers().raw();
     const u64 a0 = r[10];
-    const std::string test_name = rv64ui_elf_stem(elf_path);
     if (sim.halt_reason_ecall() && a0 == 0)
         return 0;
     if (sim.halt_reason_ecall()) {
@@ -828,7 +830,7 @@ int run_one_rv64ui_elf(const std::string& elf_path) {
 
 // 与 E:\riscv-tests\isa\rv64ui 中汇编对应、且本模拟器可跑的测试名（无 addiw/addw/ld/ld_st/lwu/sd/sllw 等）
 static const char* const RUNNABLE_RV64UI[] = {
-    "add", "addi", "and", "andi", "auipc", "beq", "bge", "bgeu", "blt", "bltu", "bne",
+    "ld","add", "addi", "and", "andi", "auipc", "beq", "bge", "bgeu", "blt", "bltu", "bne",
     "fence_i", "jal", "jalr", "lb", "lbu", "lh", "lhu", "lui", "lw",
     "or", "ori", "sb", "sh", "simple", "sll", "slli", "slt", "slti", "sltiu", "sltu",
     "sra", "srai", "srl", "srli", "st_ld", "sub", "sw", "xor", "xori",

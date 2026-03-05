@@ -63,8 +63,10 @@ bool DecodedInstruction::writes_rd() const {
         case InstructionKind::LB:
         case InstructionKind::LH:
         case InstructionKind::LW:
+        case InstructionKind::LD:
         case InstructionKind::LBU:
         case InstructionKind::LHU:
+        case InstructionKind::LWU:
         case InstructionKind::ADDI:
         case InstructionKind::SLTI:
         case InstructionKind::SLTIU:

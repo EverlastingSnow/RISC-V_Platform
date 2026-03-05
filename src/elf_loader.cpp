@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <iostream>
 
 namespace riscv {
 
@@ -138,7 +139,7 @@ ElfLoadResult load_elf32(const std::string& path, u64 memory_base) {
         }
         segments.emplace_back(phdr.p_vaddr, std::move(buf));
         vaddr_min = (std::min)(vaddr_min, phdr.p_vaddr);
-        vaddr_max = (std::max)(vaddr_max, phdr.p_vaddr + static_cast<u32>(segments.back().second.size()));
+        vaddr_max = (std::max)(vaddr_max, phdr.p_vaddr + phdr.p_memsz);
     }
 
     if (segments.empty()) {
@@ -224,7 +225,7 @@ ElfLoadResult load_elf64(const std::string& path, u64 memory_base) {
         }
         segments.emplace_back(phdr.p_vaddr, std::move(buf));
         vaddr_min = (std::min)(vaddr_min, phdr.p_vaddr);
-        vaddr_max = (std::max)(vaddr_max, phdr.p_vaddr + phdr.p_filesz);
+        vaddr_max = (std::max)(vaddr_max, phdr.p_vaddr + phdr.p_memsz);
     }
 
     if (segments.empty()) {

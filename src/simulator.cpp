@@ -1,5 +1,6 @@
 #include "riscv/simulator.h"
 
+#include <iostream>
 #include <optional>
 
 #include "riscv/csr.h"
@@ -237,26 +238,31 @@ void RISCVSimulator::stage_id() {
 
     auto instr = decode(if_id_.inst, if_id_.pc);
 
-    const bool hazard = id_ex_.valid && id_ex_.instr.is_load() && id_ex_.instr.rd != 0 &&
+    const bool load_use_hazard = id_ex_.valid && id_ex_.instr.is_load() && id_ex_.instr.rd != 0 &&
                         ((uses_rs1(instr.kind) && instr.rs1 == id_ex_.instr.rd) ||
                          (uses_rs2(instr.kind) && instr.rs2 == id_ex_.instr.rd));
 
-    if (hazard) {
+    if (load_use_hazard) {
         stall_fetch_ = true;
         next_id_ex_.valid = false;
         return;
     }
 
-    // Store-then-load hazard: previous is store, current is load to same address.
-    // Stall one cycle: do NOT advance load into ID/EX (insert bubble). The store remains in id_ex_
-    // this cycle; stage_ex() still runs with that id_ex_ and advances the store to ex_mem_.
-    // After update, id_ex_ becomes bubble, so next cycle we don't stall and the load enters ID/EX.
-    const bool st_ld_hazard = id_ex_.valid && id_ex_.instr.is_store() && instr.is_load() &&
-                              instr.rs1 == id_ex_.instr.rs1 && instr.imm == id_ex_.instr.imm;
+    const bool store_load_hazard_detected = [&]() {
+        if (!id_ex_.valid || !id_ex_.instr.is_store() || !instr.is_load()) {
+            return false;
+        }
+        if (id_ex_.instr.rs1 != instr.rs1) {
+            return false;
+        }
+        u64 store_addr = id_ex_.rs1_value + static_cast<u64>(static_cast<s64>(id_ex_.instr.imm));
+        u64 load_addr = regs_.read(instr.rs1) + static_cast<u64>(static_cast<s64>(instr.imm));
+        return store_addr == load_addr;
+    }();
 
-    if (st_ld_hazard) {
+    if (store_load_hazard_detected) {
         stall_fetch_ = true;
-        next_id_ex_.valid = false;  // bubble; store 本周期仍在 id_ex_ 中，stage_ex 会把它推进到 ex_mem_
+        next_id_ex_.valid = false;
         return;
     }
 
@@ -685,7 +691,6 @@ void RISCVSimulator::stage_mem() {
     u64 value = ex_mem_.alu_result;
     const u64 addr = ex_mem_.alu_result;
 
-    // 先处理 store（写入内存），再处理 load（读取内存），确保 store-then-load 的数据一致性
     u64 store_data = 0;
     if (instr.is_store()) {
         store_data = ex_mem_.rs2_value;
@@ -708,34 +713,35 @@ void RISCVSimulator::stage_mem() {
     }
 
     if (instr.is_load()) {
-        // Store-forwarding: use store data when load and store share the same address
         bool forwarded = false;
         u64 store_val = 0;
 
-        // Case 1: store is in mem_wb_ (store wrote in previous cycle)
-        if (mem_wb_.valid && mem_wb_.instr.is_store() && mem_wb_.mem_addr == addr) {
-            store_val = mem_wb_.store_data;
-            forwarded = true;
-        }
-        // Case 2: store is in id_ex_ (load one stage ahead of store) — use store's rs2 with forwarding
-        if (!forwarded && id_ex_.valid && id_ex_.instr.is_store()) {
-            const u64 store_addr = id_ex_.rs1_value + static_cast<u64>(static_cast<s64>(id_ex_.instr.imm));
-            if (store_addr == addr) {
-                u32 sr = id_ex_.instr.rs2;
-                if (sr == 0)
-                    store_val = 0;
-                else if (mem_wb_.valid && mem_wb_.instr.writes_rd() && mem_wb_.instr.rd == sr)
-                    store_val = mem_wb_.wb_value;
-                else if (ex_mem_.valid && ex_mem_.instr.writes_rd() && !ex_mem_.instr.is_load() && ex_mem_.instr.rd == sr)
-                    store_val = ex_mem_.alu_result;
-                else
-                    store_val = id_ex_.rs2_value;
+        auto get_store_forward_value = [&](u32 rs2_reg, u64 store_addr) -> std::optional<u64> {
+            if (rs2_reg == 0) {
+                return 0;
+            }
+            if (mem_wb_.valid && mem_wb_.instr.writes_rd() && mem_wb_.instr.rd == rs2_reg) {
+                return mem_wb_.wb_value;
+            }
+            if (ex_mem_.valid && ex_mem_.instr.writes_rd() && !ex_mem_.instr.is_load() && ex_mem_.instr.rd == rs2_reg) {
+                return ex_mem_.alu_result;
+            }
+            return std::nullopt;
+        };
+
+        if (ex_mem_.valid && ex_mem_.instr.is_store() && ex_mem_.alu_result == addr) {
+            if (auto val = get_store_forward_value(ex_mem_.instr.rs2, addr)) {
+                store_val = *val;
                 forwarded = true;
             }
         }
 
+        if (!forwarded && mem_wb_.valid && mem_wb_.instr.is_store() && mem_wb_.mem_addr == addr) {
+            store_val = mem_wb_.store_data;
+            forwarded = true;
+        }
+
         if (forwarded) {
-            // 地址匹配，根据 load 类型从 store 的数据中提取
             switch (instr.kind) {
                 case InstructionKind::LB:
                     value = static_cast<u64>(static_cast<s64>(static_cast<s8>(store_val & 0xFF)));
@@ -765,7 +771,6 @@ void RISCVSimulator::stage_mem() {
         }
 
         if (!forwarded) {
-            // 没有 forwarding，从内存读取（store 已在上面写入，所以能读到正确的值）
             switch (instr.kind) {
                 case InstructionKind::LB:
                     value = static_cast<u64>(static_cast<s64>(static_cast<s8>(memory_.read8(addr))));
@@ -797,13 +802,12 @@ void RISCVSimulator::stage_mem() {
     next_mem_wb_.valid = ex_mem_.valid;
     next_mem_wb_.instr = instr;
     next_mem_wb_.wb_value = value;
-    // 保存地址和数据，用于下一个周期的 store-forwarding
     if (instr.is_store() || instr.is_load()) {
         next_mem_wb_.mem_addr = addr;
         if (instr.is_store()) {
             next_mem_wb_.store_data = store_data;
         } else {
-            next_mem_wb_.store_data = 0;  // load 不需要保存数据
+            next_mem_wb_.store_data = 0;
         }
     } else {
         next_mem_wb_.mem_addr = 0;
