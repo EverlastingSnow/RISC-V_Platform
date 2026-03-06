@@ -188,8 +188,6 @@ void RISCVSimulator::step() {
     flush_execute_ = false;
     next_pc_ = pc_;
 
-    if (pc_ >= 0x80000100 && pc_ <= 0x800001c0) {
-    }
 
     stage_wb();
     stage_mem();
