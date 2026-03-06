@@ -567,7 +567,13 @@ void RISCVSimulator::stage_ex() {
         case InstructionKind::REM: {
             const s64 a = static_cast<s64>(rs1_val);
             const s64 b = static_cast<s64>(rs2_val);
-            alu_result = (b == 0) ? rs1_val : static_cast<u64>(static_cast<s64>(a % b));
+            if (b == 0) {
+                alu_result = rs1_val;
+            } else if (a == INT64_MIN && b == -1) {
+                alu_result = 0;  // 溢出情况
+            } else {
+                alu_result = static_cast<u64>(a % b);
+            }
             break;
         }
         case InstructionKind::REMU: {
@@ -596,20 +602,35 @@ void RISCVSimulator::stage_ex() {
         case InstructionKind::DIVUW: {
             const u32 a = static_cast<u32>(rs1_val);
             const u32 b = static_cast<u32>(rs2_val);
-            alu_result = (b == 0) ? ~0ULL : static_cast<u64>(static_cast<u32>(a / b));
+            alu_result = (b == 0) ? ~0ULL : static_cast<u64>(static_cast<s32>(a / b));
             break;
         }
         case InstructionKind::REMW: {
             const s32 a = static_cast<s32>(static_cast<u32>(rs1_val));
             const s32 b = static_cast<s32>(static_cast<u32>(rs2_val));
-            alu_result = (b == 0) ? static_cast<u64>(static_cast<s64>(a))
-                                 : static_cast<u64>(static_cast<s64>(static_cast<s32>(a % b)));
+            
+            if (b == 0) {
+                alu_result = static_cast<u64>(static_cast<s64>(a));  // 符号扩展
+            } else if (a == INT32_MIN && b == -1) {
+                alu_result = 0;  // 溢出情况
+            } else {
+                s32 res32 = a % b;
+                alu_result = static_cast<u64>(static_cast<s64>(res32));  // 符号扩展
+            }
             break;
         }
         case InstructionKind::REMUW: {
             const u32 a = static_cast<u32>(rs1_val);
             const u32 b = static_cast<u32>(rs2_val);
-            alu_result = (b == 0) ? static_cast<u64>(a) : static_cast<u64>(static_cast<u32>(a % b));
+            
+            if (b == 0) {
+                // 将a视为有符号32位数并符号扩展到64位
+                alu_result = static_cast<u64>(static_cast<s32>(a));
+            } else {
+                u32 res32 = a % b;
+                // 将结果视为有符号32位数并符号扩展到64位
+                alu_result = static_cast<u64>(static_cast<s32>(res32));
+            }
             break;
         }
         case InstructionKind::FENCE:
