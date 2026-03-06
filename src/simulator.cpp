@@ -184,11 +184,12 @@ void RISCVSimulator::step() {
     }
 
     stall_fetch_ = false;
-    redirect_ = false;
-    redirect_target_ = 0;
     flush_decode_ = false;
     flush_execute_ = false;
     next_pc_ = pc_;
+
+    if (pc_ >= 0x80000100 && pc_ <= 0x800001c0) {
+    }
 
     stage_wb();
     stage_mem();
@@ -202,13 +203,94 @@ void RISCVSimulator::step() {
 }
 
 void RISCVSimulator::stage_if() {
-    next_if_id_ = if_id_;
     if (halted_) {
-        next_if_id_.valid = false;
+        next_if_id_ = {};
+        return;
+    }
+
+    if (redirect_) {
+        next_if_id_ = {};
+        return;
+    }
+
+    if (!stall_fetch_ && csr_.has_pending_interrupt()) {
+        u64 mstatus_val = csr_.read(CSR_MSTATUS);
+        u64 cause = csr_.get_interrupt_cause();
+        csr_.write(CSR_MEPC, pc_);
+        csr_.write(CSR_MCAUSE, cause | (1ULL << 63));
+        csr_.write(CSR_MTVAL, 0);
+        
+        constexpr u64 MSTATUS_MIE = 1ULL << 3;
+        constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+        mstatus_val = (mstatus_val & ~MSTATUS_MIE) | ((mstatus_val & MSTATUS_MIE) ? MSTATUS_MPIE : 0);
+        csr_.write(CSR_MSTATUS, mstatus_val);
+        
+        u64 mtvec = csr_.read(CSR_MTVEC);
+        u64 mtvec_mode = mtvec & 0x3;
+        u64 mtvec_base = mtvec & ~0x3ULL;
+        u64 target;
+        
+        if (mtvec_mode == 1) {
+            target = mtvec_base + 4 * cause;
+        } else {
+            target = mtvec_base;
+        }
+        
+        redirect_ = true;
+        redirect_target_ = target;
+        flush_decode_ = true;
+        flush_execute_ = true;
+        
+        if_id_ = {};
+        id_ex_ = {};
+        ex_mem_ = {};
+        mem_wb_ = {};
+        next_if_id_ = {};
+        next_id_ex_ = {};
+        next_ex_mem_ = {};
+        next_mem_wb_ = {};
         return;
     }
 
     if (stall_fetch_) {
+        if (!halted_ && csr_.has_pending_interrupt()) {
+            u64 mstatus_val = csr_.read(CSR_MSTATUS);
+            u64 cause = csr_.get_interrupt_cause();
+            csr_.write(CSR_MEPC, pc_);
+            csr_.write(CSR_MCAUSE, cause | (1ULL << 63));
+            csr_.write(CSR_MTVAL, 0);
+            
+            constexpr u64 MSTATUS_MIE = 1ULL << 3;
+            constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+            mstatus_val = (mstatus_val & ~MSTATUS_MIE) | ((mstatus_val & MSTATUS_MIE) ? MSTATUS_MPIE : 0);
+            csr_.write(CSR_MSTATUS, mstatus_val);
+            
+            u64 mtvec = csr_.read(CSR_MTVEC);
+            u64 mtvec_mode = mtvec & 0x3;
+            u64 mtvec_base = mtvec & ~0x3ULL;
+            u64 target;
+            
+            if (mtvec_mode == 1) {
+                target = mtvec_base + 4 * cause;
+            } else {
+                target = mtvec_base;
+            }
+            
+            redirect_ = true;
+            redirect_target_ = target;
+            flush_decode_ = true;
+            flush_execute_ = true;
+            
+            if_id_ = {};
+            id_ex_ = {};
+            ex_mem_ = {};
+            mem_wb_ = {};
+            next_if_id_ = {};
+            next_id_ex_ = {};
+            next_ex_mem_ = {};
+            next_mem_wb_ = {};
+            return;
+        }
         next_if_id_ = if_id_;
         next_pc_ = pc_;
         return;
@@ -220,23 +302,52 @@ void RISCVSimulator::stage_if() {
         halt_reason_ = HaltReason::InvalidInstruction;
         halt_pc_ = pc_;
         halt_inst_ = 0;
-        next_if_id_.valid = false;
+        next_if_id_ = {};
         return;
     }
 
+    next_if_id_ = {};
     next_if_id_.valid = true;
     next_if_id_.pc = pc_;
     next_if_id_.inst = memory_.read32(pc_);
     next_pc_ = pc_ + 4;
 }
 
+
 void RISCVSimulator::stage_id() {
+    if (redirect_) {
+        next_id_ex_ = {};
+        return;
+    }
+    
     next_id_ex_ = {};
     if (!if_id_.valid) {
         return;
     }
 
     auto instr = decode(if_id_.inst, if_id_.pc);
+
+    // 特权级检查：某些指令只能在 S 或 M 模式下执行
+    bool needs_supervisor_or_machine = false;
+    switch (instr.kind) {
+        case InstructionKind::SRET:
+        case InstructionKind::SFENCE_VMA:
+            needs_supervisor_or_machine = true;
+            break;
+        default:
+            break;
+    }
+    
+    if (needs_supervisor_or_machine) {
+        u64 mstatus = csr_.read(CSR_MSTATUS);
+        u64 current_priv = (mstatus >> 11) & 0x3;
+        if (current_priv == 0) {
+            instr.kind = InstructionKind::INVALID;
+        }
+    }
+
+    if (instr.rd == 3 && instr.writes_rd()) {
+    }
 
     const bool load_use_hazard = id_ex_.valid && id_ex_.instr.is_load() && id_ex_.instr.rd != 0 &&
                         ((uses_rs1(instr.kind) && instr.rs1 == id_ex_.instr.rd) ||
@@ -270,13 +381,18 @@ void RISCVSimulator::stage_id() {
     next_id_ex_.instr = instr;
     next_id_ex_.rs1_value = uses_rs1(instr.kind) ? regs_.read(instr.rs1) : 0;
     next_id_ex_.rs2_value = uses_rs2(instr.kind) ? regs_.read(instr.rs2) : 0;
+    
+    if (instr.rd == 3) {
+    }
 }
 
 void RISCVSimulator::stage_ex() {
     next_ex_mem_ = {};
     if (!id_ex_.valid) {
-        // Bubble in ID/EX: keep next_ex_mem_ empty (invalid), don't copy ex_mem_
-        // This prevents the previous instruction from being re-executed
+        return;
+    }
+
+    if (redirect_) {
         return;
     }
 
@@ -635,17 +751,83 @@ void RISCVSimulator::stage_ex() {
         }
         case InstructionKind::FENCE:
         case InstructionKind::FENCE_I:
+        case InstructionKind::SFENCE_VMA:
             alu_result = 0;
             break;
+        case InstructionKind::WFI: {
+            if (csr_.has_pending_interrupt()) {
+                u64 mstatus_wfi = csr_.read(CSR_MSTATUS);
+                constexpr u64 MSTATUS_MIE = 1ULL << 3;
+                constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+                u64 old_mie = (mstatus_wfi & MSTATUS_MIE) ? 1 : 0;
+                mstatus_wfi = (mstatus_wfi & ~MSTATUS_MIE) | (old_mie ? MSTATUS_MPIE : 0);
+                csr_.write(CSR_MSTATUS, mstatus_wfi);
+                csr_.write(0x344, 0);
+                redirect_ = true;
+                redirect_target_ = pc_ + 4;
+                flush_decode_ = true;
+                flush_execute_ = true;
+                if_id_ = {};
+                id_ex_ = {};
+                ex_mem_ = {};
+                mem_wb_ = {};
+                next_if_id_ = {};
+                next_id_ex_ = {};
+                next_ex_mem_ = {};
+                next_mem_wb_ = {};
+            }
+            stall_fetch_ = true;
+            next_id_ex_.valid = false;
+            alu_result = 0;
+            break;
+        }
         case InstructionKind::ECALL:
         case InstructionKind::EBREAK:
-            // 在EX阶段不立刻停止，只标记结果，让指令顺利流到WB阶段再停机
+            // EBREAK 应该触发断点异常，而不是直接停机
+            // 设置异常相关 CSR
+            if (instr.kind == InstructionKind::EBREAK) {
+                csr_.write(CSR_MEPC, instr.pc);  // mepc = ebreak 指令地址
+                csr_.write(CSR_MCAUSE, 3);        // mcause = 3 (Breakpoint)
+                csr_.write(CSR_MTVAL, 0);         // mtval = 0
+                
+                // 更新 mstatus: MPIE = MIE, MIE = 0
+                u64 mstatus = csr_.read(CSR_MSTATUS);
+                constexpr u64 MSTATUS_MIE = 1ULL << 3;
+                constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+                u64 old_mie = (mstatus & MSTATUS_MIE) ? 1 : 0;
+                mstatus = (mstatus & ~MSTATUS_MPIE) | (old_mie ? MSTATUS_MPIE : 0);
+                mstatus &= ~MSTATUS_MIE;
+                csr_.write(CSR_MSTATUS, mstatus);
+                
+                // 跳转到异常处理程序
+                u64 mtvec = csr_.read(CSR_MTVEC);
+                branch_taken = true;
+                branch_target = mtvec & ~0x3ULL;
+                flush_decode_ = true;
+                flush_execute_ = true;
+            }
             alu_result = 0;
             break;
         case InstructionKind::MRET: {
-            // MRET：跳转到 mepc
+            u64 mepc = csr_.read(CSR_MEPC);
             branch_taken = true;
-            branch_target = csr_.read(CSR_MEPC);
+            branch_target = mepc;
+            flush_decode_ = true;
+            flush_execute_ = true;
+            next_if_id_ = {};
+            stall_fetch_ = false;
+            
+            u64 mstatus = csr_.read(CSR_MSTATUS);
+            constexpr u64 MSTATUS_MIE = 1ULL << 3;
+            constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+            constexpr u64 MSTATUS_MPP = 0x1800;  // bits [12:11]
+            u64 old_mpie = (mstatus & MSTATUS_MPIE) ? 1 : 0;
+            u64 old_mpp = (mstatus >> 11) & 0x3;
+            mstatus = (mstatus & ~MSTATUS_MIE) | (old_mpie ? MSTATUS_MIE : 0);
+            mstatus |= MSTATUS_MPIE;
+            mstatus = (mstatus & ~MSTATUS_MPP) | (old_mpp << 11);
+            csr_.write(CSR_MSTATUS, mstatus);
+            
             alu_result = 0;
             break;
         }
@@ -658,6 +840,7 @@ void RISCVSimulator::stage_ex() {
             const u32 csr_addr = static_cast<u32>(instr.imm) & 0xFFFu;
             const u64 old_val = csr_.read(csr_addr);
             u64 new_val = old_val;
+            
             if (instr.kind == InstructionKind::CSRRW || instr.kind == InstructionKind::CSRRWI) {
                 new_val = (instr.kind == InstructionKind::CSRRWI)
                               ? static_cast<u64>(instr.rs1)
@@ -668,7 +851,9 @@ void RISCVSimulator::stage_ex() {
                                     ? static_cast<u64>(instr.rs1)
                                     : rs1_val;
                 new_val = old_val | src;
-                if (src != 0) csr_.write(csr_addr, new_val);
+                if (src != 0) {
+                    csr_.write(csr_addr, new_val);
+                }
             } else {
                 const u64 mask = (instr.kind == InstructionKind::CSRRCI)
                                     ? static_cast<u64>(instr.rs1)
@@ -694,7 +879,13 @@ void RISCVSimulator::stage_ex() {
     next_ex_mem_.branch_taken = branch_taken;
     next_ex_mem_.branch_target = branch_target;
 
+    if (instr.is_csr()) {
+        next_ex_mem_.csr_write = true;
+        next_ex_mem_.csr_addr = static_cast<u32>(instr.imm) & 0xFFFu;
+    }
+
     if (branch_taken) {
+        next_if_id_ = {};
         redirect_ = true;
         redirect_target_ = branch_target;
         flush_decode_ = true;
@@ -707,6 +898,19 @@ void RISCVSimulator::stage_mem() {
     if (!ex_mem_.valid) {
         return;
     }
+
+    if (redirect_) {
+        return;
+    }
+
+    next_mem_wb_.valid = ex_mem_.valid;
+    next_mem_wb_.instr = ex_mem_.instr;
+    next_mem_wb_.wb_value = ex_mem_.alu_result;
+    next_mem_wb_.mem_addr = ex_mem_.alu_result;
+    next_mem_wb_.store_data = ex_mem_.rs2_value;
+    next_mem_wb_.csr_write = ex_mem_.csr_write;
+    next_mem_wb_.csr_addr = ex_mem_.csr_addr;
+    next_mem_wb_.csr_new_val = ex_mem_.csr_new_val;
 
     const auto instr = ex_mem_.instr;
     u64 value = ex_mem_.alu_result;
@@ -821,31 +1025,77 @@ void RISCVSimulator::stage_mem() {
         next_mem_wb_.mem_addr = 0;
         next_mem_wb_.store_data = 0;
     }
+    next_mem_wb_.csr_write = ex_mem_.csr_write;
+    next_mem_wb_.csr_addr = ex_mem_.csr_addr;
+    next_mem_wb_.csr_new_val = ex_mem_.csr_new_val;
 }
 
 void RISCVSimulator::stage_wb() {
     if (!mem_wb_.valid) {
         return;
     }
-    // 非法指令在 WB 阶段停机，避免单条 ECALL 后取到的 0 在 EX 提前停机覆盖 Ecall
+
+    if (redirect_) {
+        return;
+    }
+    
+    // 非法指令：触发异常而不是直接停机
     if (!mem_wb_.instr.is_valid()) {
-        halted_ = true;
-        halt_reason_ = HaltReason::InvalidInstruction;
-        halt_pc_ = mem_wb_.instr.pc;
-        halt_inst_ = mem_wb_.instr.raw;
+        // 从内存中读取实际指令编码用于 mtval
+        u32 illegal_inst = memory_.read32(mem_wb_.instr.pc);
+        
+        // 设置异常相关 CSR
+        csr_.write(0x341, mem_wb_.instr.pc);  // mepc = 非法指令地址
+        csr_.write(0x342, 2);                  // mcause = 2 (Illegal instruction)
+        csr_.write(0x343, illegal_inst);       // mtval = 非法指令编码
+        
+        // 更新 mstatus: MPIE = MIE, MIE = 0
+        u64 mstatus = csr_.read(CSR_MSTATUS);
+        constexpr u64 MSTATUS_MIE = 1ULL << 3;
+        constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+        u64 old_mie = (mstatus & MSTATUS_MIE) ? 1 : 0;
+        mstatus = (mstatus & ~MSTATUS_MPIE) | (old_mie ? MSTATUS_MPIE : 0);
+        mstatus &= ~MSTATUS_MIE;
+        csr_.write(CSR_MSTATUS, mstatus);
+        
+        // 跳转到异常处理程序（支持向量模式）
+        u64 mtvec = csr_.read(0x305);
+        u64 mtvec_mode = mtvec & 0x3;
+        u64 mtvec_base = mtvec & ~0x3ULL;
+        u64 cause = 2;  // Illegal instruction
+        u64 target;
+        
+        if (mtvec_mode == 1) {
+            target = mtvec_base + 4 * cause;
+        } else {
+            target = mtvec_base;
+        }
+        
+        redirect_ = true;
+        redirect_target_ = target;
+        flush_decode_ = true;
+        flush_execute_ = true;
+        
+        // 清空所有流水线寄存器
+        if_id_ = {};
+        id_ex_ = {};
+        ex_mem_ = {};
+        mem_wb_ = {};
+        next_if_id_ = {};
+        next_id_ex_ = {};
+        next_ex_mem_ = {};
+        next_mem_wb_ = {};
+        
         return;
     }
     if (mem_wb_.instr.writes_rd()) {
-        regs_.write(mem_wb_.instr.rd, mem_wb_.wb_value);
+        u64 val = mem_wb_.wb_value;
+        regs_.write(mem_wb_.instr.rd, val);
     }
 
-    // 在WB阶段"提交"ECALL/EBREAK：等前面的指令都写回后再停机
-    // 注意：MRET/SRET等也是system指令，但不应触发halt
-    if (mem_wb_.instr.kind == InstructionKind::ECALL || mem_wb_.instr.kind == InstructionKind::EBREAK) {
+    if (mem_wb_.instr.kind == InstructionKind::ECALL) {
         halted_ = true;
-        halt_reason_ = (mem_wb_.instr.kind == InstructionKind::ECALL)
-                           ? HaltReason::Ecall
-                           : HaltReason::Ebreak;
+        halt_reason_ = HaltReason::Ecall;
         halt_pc_ = mem_wb_.instr.pc;
         halt_inst_ = mem_wb_.instr.raw;
     }
@@ -854,11 +1104,19 @@ void RISCVSimulator::stage_wb() {
 void RISCVSimulator::update_pipeline_registers() {
     if (redirect_) {
         pc_ = redirect_target_;
+        if_id_ = {};
         next_if_id_ = {};
+        id_ex_ = {};
         next_id_ex_ = {};
-    } else {
-        pc_ = next_pc_;
+        next_ex_mem_ = {};
+        next_mem_wb_ = {};
+        
+        redirect_ = false;
+        redirect_target_ = 0;
+        return;
     }
+    
+    pc_ = next_pc_;
 
     if (flush_decode_) {
         next_if_id_ = {};

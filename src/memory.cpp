@@ -12,18 +12,14 @@ void Memory::reset() {
     std::fill(data_.begin(), data_.end(), 0);
 }
 
-void Memory::load_program(const std::vector<u8>& binary, u64 offset) {
-    // std::cerr << "[DEBUG Memory] load_program: offset=" << std::hex << offset << " binary.size=" << std::dec << binary.size() << "\n";
-    if (offset + binary.size() > data_.size()) {
+void Memory::load_program(const std::vector<u8>& binary, u64 vaddr_offset) {
+    // vaddr_offset 是程序加载的虚拟地址偏移（相对于 base_address_）
+    // 转换为 data_ 数组索引
+    u64 index = (vaddr_offset >= base_address_) ? (vaddr_offset - base_address_) : vaddr_offset;
+    if (index + binary.size() > data_.size()) {
         throw std::out_of_range("Program does not fit in memory");
     }
-    std::copy(binary.begin(), binary.end(), data_.begin() + static_cast<std::size_t>(offset));
-    
-    // 调试：检查加载后的内存
-    // if (offset == 0 && binary.size() > 0x3001) {
-    //     std::cerr << "[DEBUG Memory] after load: data_[0x3000]=" << std::hex << (int)data_[0x3000] 
-    //               << " data_[0x3001]=" << (int)data_[0x3001] << std::dec << "\n";
-    // }
+    std::copy(binary.begin(), binary.end(), data_.begin() + static_cast<std::size_t>(index));
 }
 
 u8 Memory::read8(u64 address) const {

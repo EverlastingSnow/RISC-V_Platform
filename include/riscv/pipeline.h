@@ -26,6 +26,9 @@ struct EXMEM {
     u64 rs2_value{0};
     bool branch_taken{false};
     u64 branch_target{0};
+    bool csr_write{false};
+    u32 csr_addr{0};
+    u64 csr_new_val{0};
 };
 
 struct MEMWB {
@@ -34,6 +37,9 @@ struct MEMWB {
     u64 wb_value{0};
     u64 mem_addr{0};  // 保存 store/load 的地址，用于 store-forwarding
     u64 store_data{0};  // 保存 store 的数据，用于 store-forwarding
+    bool csr_write{false};
+    u32 csr_addr{0};
+    u64 csr_new_val{0};
 };
 
 struct StageSignals {

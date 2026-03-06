@@ -1,4 +1,5 @@
 #include "riscv/csr.h"
+#include <iostream>
 
 namespace riscv {
 
@@ -26,7 +27,9 @@ CSR::CSR() {
 }
 
 void CSR::reset() {
-    mstatus_ = 0;
+    mstatus_ = 0x200000000ULL;  // MBE = 1 (Machine Big-Endian)
+    mstatus_ |= (2ULL << 32);   // UXL = 2 (64-bit mode)
+    mstatus_ |= (3ULL << 11);   // MPP = 3 (Machine mode)
     mie_ = 0;
     mtvec_ = 0;
     mscratch_ = 0;
@@ -85,11 +88,11 @@ u64 CSR::read(u32 addr) const {
         case CsrAddr::MCAUSE:
             return mcause_;
         case CsrAddr::MTVAL:
-            return 0;
+            return mtval_;
         case CsrAddr::MIP:
             return mip_;
         case CsrAddr::SSTATUS:
-            return sstatus_;
+            return mstatus_ & 0x800000030001DE00ULL;  // SSTATUS 是 MSTATUS 的子集
         case CsrAddr::SSCRATCH:
             return sscratch_;
         case CsrAddr::SEPC:
@@ -108,7 +111,7 @@ u64 CSR::read(u32 addr) const {
 void CSR::write(u32 addr, u64 value) {
     switch (addr) {
         case CsrAddr::MSTATUS:
-            mstatus_ = value;
+            mstatus_ = (value & ~0x200000000ULL) | (mstatus_ & 0x200000000ULL);  // MBE is read-only
             break;
         case CsrAddr::MIE:
             mie_ = value;
@@ -129,10 +132,13 @@ void CSR::write(u32 addr, u64 value) {
             mip_ = value;
             break;
         case CsrAddr::MISA:
+            break;
         case CsrAddr::MTVAL:
+            mtval_ = value;
             break;
         case CsrAddr::SSTATUS:
             sstatus_ = value;
+            mstatus_ = (mstatus_ & ~0x800000030001DE00ULL) | (value & 0x800000030001DE00ULL);
             break;
         case CsrAddr::SSCRATCH:
             sscratch_ = value;
@@ -152,6 +158,27 @@ void CSR::write(u32 addr, u64 value) {
         default:
             break;
     }
+}
+
+bool CSR::has_pending_interrupt() const {
+    constexpr u64 MSTATUS_MIE = 1ULL << 3;
+    bool mie_enabled = (mstatus_ & MSTATUS_MIE) != 0;
+    if (!mie_enabled) return false;
+    
+    u64 pending = mip_ & mie_;
+    return pending != 0;
+}
+
+u64 CSR::get_interrupt_cause() const {
+    u64 pending = mip_ & mie_;
+    if (pending == 0) return 0;
+    
+    for (int i = 0; i < 64; ++i) {
+        if (pending & (1ULL << i)) {
+            return i;
+        }
+    }
+    return 0;
 }
 
 }  // namespace riscv
