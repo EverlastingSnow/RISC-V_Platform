@@ -76,30 +76,30 @@ CMakeFiles/riscv_instr_tests.dir/test/instruction_tests.cpp.obj: CMakeFiles/risc
 CMakeFiles/riscv_instr_tests.dir/test/instruction_tests.cpp.obj: E:/RISC-V_Platform/test/instruction_tests.cpp
 CMakeFiles/riscv_instr_tests.dir/test/instruction_tests.cpp.obj: CMakeFiles/riscv_instr_tests.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/riscv_instr_tests.dir/test/instruction_tests.cpp.obj"
-	F:\msys64\ucrt64\bin\clang++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_instr_tests.dir/test/instruction_tests.cpp.obj -MF CMakeFiles\riscv_instr_tests.dir\test\instruction_tests.cpp.obj.d -o CMakeFiles\riscv_instr_tests.dir\test\instruction_tests.cpp.obj -c E:\RISC-V_Platform\test\instruction_tests.cpp
+	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_instr_tests.dir/test/instruction_tests.cpp.obj -MF CMakeFiles\riscv_instr_tests.dir\test\instruction_tests.cpp.obj.d -o CMakeFiles\riscv_instr_tests.dir\test\instruction_tests.cpp.obj -c E:\RISC-V_Platform\test\instruction_tests.cpp
 
 CMakeFiles/riscv_instr_tests.dir/test/instruction_tests.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/riscv_instr_tests.dir/test/instruction_tests.cpp.i"
-	F:\msys64\ucrt64\bin\clang++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\RISC-V_Platform\test\instruction_tests.cpp > CMakeFiles\riscv_instr_tests.dir\test\instruction_tests.cpp.i
+	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\RISC-V_Platform\test\instruction_tests.cpp > CMakeFiles\riscv_instr_tests.dir\test\instruction_tests.cpp.i
 
 CMakeFiles/riscv_instr_tests.dir/test/instruction_tests.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/riscv_instr_tests.dir/test/instruction_tests.cpp.s"
-	F:\msys64\ucrt64\bin\clang++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\RISC-V_Platform\test\instruction_tests.cpp -o CMakeFiles\riscv_instr_tests.dir\test\instruction_tests.cpp.s
+	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\RISC-V_Platform\test\instruction_tests.cpp -o CMakeFiles\riscv_instr_tests.dir\test\instruction_tests.cpp.s
 
 CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.obj: CMakeFiles/riscv_instr_tests.dir/flags.make
 CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.obj: CMakeFiles/riscv_instr_tests.dir/includes_CXX.rsp
 CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.obj: E:/RISC-V_Platform/src/elf_loader.cpp
 CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.obj: CMakeFiles/riscv_instr_tests.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.obj"
-	F:\msys64\ucrt64\bin\clang++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.obj -MF CMakeFiles\riscv_instr_tests.dir\src\elf_loader.cpp.obj.d -o CMakeFiles\riscv_instr_tests.dir\src\elf_loader.cpp.obj -c E:\RISC-V_Platform\src\elf_loader.cpp
+	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.obj -MF CMakeFiles\riscv_instr_tests.dir\src\elf_loader.cpp.obj.d -o CMakeFiles\riscv_instr_tests.dir\src\elf_loader.cpp.obj -c E:\RISC-V_Platform\src\elf_loader.cpp
 
 CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.i"
-	F:\msys64\ucrt64\bin\clang++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\RISC-V_Platform\src\elf_loader.cpp > CMakeFiles\riscv_instr_tests.dir\src\elf_loader.cpp.i
+	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\RISC-V_Platform\src\elf_loader.cpp > CMakeFiles\riscv_instr_tests.dir\src\elf_loader.cpp.i
 
 CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.s"
-	F:\msys64\ucrt64\bin\clang++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\RISC-V_Platform\src\elf_loader.cpp -o CMakeFiles\riscv_instr_tests.dir\src\elf_loader.cpp.s
+	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\RISC-V_Platform\src\elf_loader.cpp -o CMakeFiles\riscv_instr_tests.dir\src\elf_loader.cpp.s
 
 # Object files for target riscv_instr_tests
 riscv_instr_tests_OBJECTS = \

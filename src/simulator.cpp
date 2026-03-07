@@ -325,24 +325,24 @@ void RISCVSimulator::stage_id() {
 
     auto instr = decode(if_id_.inst, if_id_.pc);
 
-    // 特权级检查：某些指令只能在 S 或 M 模式下执行
-    bool needs_supervisor_or_machine = false;
-    switch (instr.kind) {
-        case InstructionKind::SRET:
-        case InstructionKind::SFENCE_VMA:
-            needs_supervisor_or_machine = true;
-            break;
-        default:
-            break;
-    }
-    
-    if (needs_supervisor_or_machine) {
-        u64 mstatus = csr_.read(CSR_MSTATUS);
-        u64 current_priv = (mstatus >> 11) & 0x3;
-        if (current_priv == 0) {
-            instr.kind = InstructionKind::INVALID;
-        }
-    }
+    // 特权级检查暂时禁用
+    // bool needs_supervisor_or_machine = false;
+    // switch (instr.kind) {
+    //     case InstructionKind::SRET:
+    //     case InstructionKind::SFENCE_VMA:
+    //         needs_supervisor_or_machine = true;
+    //         break;
+    //     default:
+    //         break;
+    // }
+    // 
+    // if (needs_supervisor_or_machine) {
+    //     u64 mstatus = csr_.read(CSR_MSTATUS);
+    //     u64 current_priv = (mstatus >> 11) & 0x3;
+    //     if (current_priv == 0) {
+    //         instr.kind = InstructionKind::INVALID;
+    //     }
+    // }
 
     if (instr.rd == 3 && instr.writes_rd()) {
     }
@@ -897,9 +897,8 @@ void RISCVSimulator::stage_mem() {
         return;
     }
 
-    if (redirect_) {
-        return;
-    }
+    // 即使 redirect_ 为 true，也要完成当前指令的 MEM 阶段
+    // 这样 JAL/JALR 的返回地址才能正确写入寄存器
 
     next_mem_wb_.valid = ex_mem_.valid;
     next_mem_wb_.instr = ex_mem_.instr;
@@ -909,6 +908,10 @@ void RISCVSimulator::stage_mem() {
     next_mem_wb_.csr_write = ex_mem_.csr_write;
     next_mem_wb_.csr_addr = ex_mem_.csr_addr;
     next_mem_wb_.csr_new_val = ex_mem_.csr_new_val;
+
+    if (redirect_) {
+        return;
+    }
 
     const auto instr = ex_mem_.instr;
     u64 value = ex_mem_.alu_result;
@@ -1032,10 +1035,6 @@ void RISCVSimulator::stage_wb() {
     if (!mem_wb_.valid) {
         return;
     }
-
-    if (redirect_) {
-        return;
-    }
     
     // 非法指令：触发异常而不是直接停机
     if (!mem_wb_.instr.is_valid()) {
@@ -1106,8 +1105,10 @@ void RISCVSimulator::update_pipeline_registers() {
         next_if_id_ = {};
         id_ex_ = {};
         next_id_ex_ = {};
-        next_ex_mem_ = {};
-        next_mem_wb_ = {};
+        // 不清空 next_ex_mem_ 和 next_mem_wb_，让 JAL/JALR 的返回地址能正确写入
+        // 但仍然需要更新 ex_mem_ 和 mem_wb_ 寄存器
+        ex_mem_ = next_ex_mem_;
+        mem_wb_ = next_mem_wb_;
         
         redirect_ = false;
         redirect_target_ = 0;

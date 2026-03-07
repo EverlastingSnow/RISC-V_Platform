@@ -1,2 +1,0 @@
-F:\msys64\ucrt64\bin\llvm-ar.exe qc libriscv_core.a CMakeFiles/riscv_core.dir/src/memory.cpp.obj CMakeFiles/riscv_core.dir/src/register_file.cpp.obj CMakeFiles/riscv_core.dir/src/decoder.cpp.obj CMakeFiles/riscv_core.dir/src/csr.cpp.obj CMakeFiles/riscv_core.dir/src/simulator.cpp.obj
-F:\msys64\ucrt64\bin\llvm-ranlib.exe libriscv_core.a

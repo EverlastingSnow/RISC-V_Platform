@@ -174,20 +174,11 @@ CMakeFiles/riscv_sim.dir/src/main.cpp.obj: E:/RISC-V_Platform/src/main.cpp \
   F:/msys64/ucrt64/include/vadefs.h \
   F:/msys64/ucrt64/include/wchar.h \
   F:/msys64/ucrt64/include/wctype.h \
-  F:/msys64/ucrt64/lib/clang/20/include/__stddef_header_macro.h \
-  F:/msys64/ucrt64/lib/clang/20/include/__stddef_max_align_t.h \
-  F:/msys64/ucrt64/lib/clang/20/include/__stddef_null.h \
-  F:/msys64/ucrt64/lib/clang/20/include/__stddef_nullptr_t.h \
-  F:/msys64/ucrt64/lib/clang/20/include/__stddef_offsetof.h \
-  F:/msys64/ucrt64/lib/clang/20/include/__stddef_ptrdiff_t.h \
-  F:/msys64/ucrt64/lib/clang/20/include/__stddef_size_t.h \
-  F:/msys64/ucrt64/lib/clang/20/include/__stddef_wchar_t.h \
-  F:/msys64/ucrt64/lib/clang/20/include/__stddef_wint_t.h \
-  F:/msys64/ucrt64/lib/clang/20/include/limits.h \
-  F:/msys64/ucrt64/lib/clang/20/include/mm_malloc.h \
-  F:/msys64/ucrt64/lib/clang/20/include/stddef.h \
-  F:/msys64/ucrt64/lib/clang/20/include/stdint.h \
-  F:/msys64/ucrt64/lib/clang/20/include/vadefs.h
+  F:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.1.0/include/limits.h \
+  F:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.1.0/include/mm_malloc.h \
+  F:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.1.0/include/stddef.h \
+  F:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.1.0/include/stdint.h \
+  F:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.1.0/include/syslimits.h
 
 
 E:/RISC-V_Platform/include/riscv/register_file.h:
@@ -278,8 +269,6 @@ F:/msys64/ucrt64/include/c++/15.1.0/bits/codecvt.h:
 
 F:/msys64/ucrt64/include/c++/15.1.0/bits/concept_check.h:
 
-F:/msys64/ucrt64/lib/clang/20/include/stddef.h:
-
 F:/msys64/ucrt64/include/c++/15.1.0/bits/cpp_type_traits.h:
 
 F:/msys64/ucrt64/include/c++/15.1.0/bits/requires_hosted.h:
@@ -287,6 +276,8 @@ F:/msys64/ucrt64/include/c++/15.1.0/bits/requires_hosted.h:
 F:/msys64/ucrt64/include/c++/15.1.0/bits/exception_defines.h:
 
 F:/msys64/ucrt64/include/c++/15.1.0/bits/ptr_traits.h:
+
+F:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.1.0/include/stddef.h:
 
 F:/msys64/ucrt64/include/c++/15.1.0/bits/ios_base.h:
 
@@ -348,6 +339,8 @@ F:/msys64/ucrt64/include/c++/15.1.0/type_traits:
 
 F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_bvector.h:
 
+F:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.1.0/include/limits.h:
+
 F:/msys64/ucrt64/include/c++/15.1.0/bits/streambuf.tcc:
 
 F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_construct.h:
@@ -364,9 +357,9 @@ F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_uninitialized.h:
 
 F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_vector.h:
 
-F:/msys64/ucrt64/lib/clang/20/include/__stddef_size_t.h:
-
 F:/msys64/ucrt64/include/c++/15.1.0/bits/stream_iterator.h:
+
+F:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.1.0/include/syslimits.h:
 
 F:/msys64/ucrt64/include/c++/15.1.0/bits/streambuf_iterator.h:
 
@@ -466,6 +459,8 @@ F:/msys64/ucrt64/include/c++/15.1.0/vector:
 
 F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/basic_file.h:
 
+F:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.1.0/include/stdint.h:
+
 F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/c++config.h:
 
 F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/c++locale.h:
@@ -484,11 +479,7 @@ F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/gthr.h:
 
 F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/os_defines.h:
 
-F:/msys64/ucrt64/lib/clang/20/include/__stddef_offsetof.h:
-
 F:/msys64/ucrt64/include/corecrt.h:
-
-F:/msys64/ucrt64/lib/clang/20/include/__stddef_ptrdiff_t.h:
 
 F:/msys64/ucrt64/include/corecrt_startup.h:
 
@@ -544,22 +535,4 @@ F:/msys64/ucrt64/include/wchar.h:
 
 F:/msys64/ucrt64/include/wctype.h:
 
-F:/msys64/ucrt64/lib/clang/20/include/__stddef_header_macro.h:
-
-F:/msys64/ucrt64/lib/clang/20/include/__stddef_max_align_t.h:
-
-F:/msys64/ucrt64/lib/clang/20/include/__stddef_null.h:
-
-F:/msys64/ucrt64/lib/clang/20/include/__stddef_nullptr_t.h:
-
-F:/msys64/ucrt64/lib/clang/20/include/__stddef_wchar_t.h:
-
-F:/msys64/ucrt64/lib/clang/20/include/__stddef_wint_t.h:
-
-F:/msys64/ucrt64/lib/clang/20/include/limits.h:
-
-F:/msys64/ucrt64/lib/clang/20/include/mm_malloc.h:
-
-F:/msys64/ucrt64/lib/clang/20/include/stdint.h:
-
-F:/msys64/ucrt64/lib/clang/20/include/vadefs.h:
+F:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.1.0/include/mm_malloc.h:

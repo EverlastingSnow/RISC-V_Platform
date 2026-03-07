@@ -1,61 +1,61 @@
 [
 {
   "directory": "E:/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\clang++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\memory.cpp.obj -c E:\\RISC-V_Platform\\src\\memory.cpp",
+  "command": "F:\\msys64\\ucrt64\\bin\\g++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\memory.cpp.obj -c E:\\RISC-V_Platform\\src\\memory.cpp",
   "file": "E:/RISC-V_Platform/src/memory.cpp",
   "output": "CMakeFiles/riscv_core.dir/src/memory.cpp.obj"
 },
 {
   "directory": "E:/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\clang++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\register_file.cpp.obj -c E:\\RISC-V_Platform\\src\\register_file.cpp",
+  "command": "F:\\msys64\\ucrt64\\bin\\g++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\register_file.cpp.obj -c E:\\RISC-V_Platform\\src\\register_file.cpp",
   "file": "E:/RISC-V_Platform/src/register_file.cpp",
   "output": "CMakeFiles/riscv_core.dir/src/register_file.cpp.obj"
 },
 {
   "directory": "E:/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\clang++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\decoder.cpp.obj -c E:\\RISC-V_Platform\\src\\decoder.cpp",
+  "command": "F:\\msys64\\ucrt64\\bin\\g++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\decoder.cpp.obj -c E:\\RISC-V_Platform\\src\\decoder.cpp",
   "file": "E:/RISC-V_Platform/src/decoder.cpp",
   "output": "CMakeFiles/riscv_core.dir/src/decoder.cpp.obj"
 },
 {
   "directory": "E:/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\clang++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\csr.cpp.obj -c E:\\RISC-V_Platform\\src\\csr.cpp",
+  "command": "F:\\msys64\\ucrt64\\bin\\g++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\csr.cpp.obj -c E:\\RISC-V_Platform\\src\\csr.cpp",
   "file": "E:/RISC-V_Platform/src/csr.cpp",
   "output": "CMakeFiles/riscv_core.dir/src/csr.cpp.obj"
 },
 {
   "directory": "E:/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\clang++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\simulator.cpp.obj -c E:\\RISC-V_Platform\\src\\simulator.cpp",
+  "command": "F:\\msys64\\ucrt64\\bin\\g++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\simulator.cpp.obj -c E:\\RISC-V_Platform\\src\\simulator.cpp",
   "file": "E:/RISC-V_Platform/src/simulator.cpp",
   "output": "CMakeFiles/riscv_core.dir/src/simulator.cpp.obj"
 },
 {
   "directory": "E:/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\clang++.exe  @CMakeFiles/riscv_sim.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_sim.dir\\src\\main.cpp.obj -c E:\\RISC-V_Platform\\src\\main.cpp",
+  "command": "F:\\msys64\\ucrt64\\bin\\g++.exe  @CMakeFiles/riscv_sim.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_sim.dir\\src\\main.cpp.obj -c E:\\RISC-V_Platform\\src\\main.cpp",
   "file": "E:/RISC-V_Platform/src/main.cpp",
   "output": "CMakeFiles/riscv_sim.dir/src/main.cpp.obj"
 },
 {
   "directory": "E:/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\clang++.exe  @CMakeFiles/riscv_instr_tests.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_instr_tests.dir\\test\\instruction_tests.cpp.obj -c E:\\RISC-V_Platform\\test\\instruction_tests.cpp",
+  "command": "F:\\msys64\\ucrt64\\bin\\g++.exe  @CMakeFiles/riscv_instr_tests.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_instr_tests.dir\\test\\instruction_tests.cpp.obj -c E:\\RISC-V_Platform\\test\\instruction_tests.cpp",
   "file": "E:/RISC-V_Platform/test/instruction_tests.cpp",
   "output": "CMakeFiles/riscv_instr_tests.dir/test/instruction_tests.cpp.obj"
 },
 {
   "directory": "E:/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\clang++.exe  @CMakeFiles/riscv_instr_tests.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_instr_tests.dir\\src\\elf_loader.cpp.obj -c E:\\RISC-V_Platform\\src\\elf_loader.cpp",
+  "command": "F:\\msys64\\ucrt64\\bin\\g++.exe  @CMakeFiles/riscv_instr_tests.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\riscv_instr_tests.dir\\src\\elf_loader.cpp.obj -c E:\\RISC-V_Platform\\src\\elf_loader.cpp",
   "file": "E:/RISC-V_Platform/src/elf_loader.cpp",
   "output": "CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.obj"
 },
 {
   "directory": "E:/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\clang++.exe  @CMakeFiles/run_riscv_tests.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\run_riscv_tests.dir\\src\\run_riscv_tests.cpp.obj -c E:\\RISC-V_Platform\\src\\run_riscv_tests.cpp",
+  "command": "F:\\msys64\\ucrt64\\bin\\g++.exe  @CMakeFiles/run_riscv_tests.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\run_riscv_tests.dir\\src\\run_riscv_tests.cpp.obj -c E:\\RISC-V_Platform\\src\\run_riscv_tests.cpp",
   "file": "E:/RISC-V_Platform/src/run_riscv_tests.cpp",
   "output": "CMakeFiles/run_riscv_tests.dir/src/run_riscv_tests.cpp.obj"
 },
 {
   "directory": "E:/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\clang++.exe  @CMakeFiles/run_riscv_tests.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\run_riscv_tests.dir\\src\\elf_loader.cpp.obj -c E:\\RISC-V_Platform\\src\\elf_loader.cpp",
+  "command": "F:\\msys64\\ucrt64\\bin\\g++.exe  @CMakeFiles/run_riscv_tests.dir/includes_CXX.rsp -g -std=gnu++20 -o CMakeFiles\\run_riscv_tests.dir\\src\\elf_loader.cpp.obj -c E:\\RISC-V_Platform\\src\\elf_loader.cpp",
   "file": "E:/RISC-V_Platform/src/elf_loader.cpp",
   "output": "CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.obj"
 }

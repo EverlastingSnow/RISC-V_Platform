@@ -1,3 +1,0 @@
-"C:\Program Files\CMake\bin\cmake.exe" -E rm -f CMakeFiles\riscv_instr_tests.dir/objects.a
-F:\msys64\ucrt64\bin\llvm-ar.exe qc CMakeFiles\riscv_instr_tests.dir/objects.a @CMakeFiles\riscv_instr_tests.dir\objects1.rsp
-F:\msys64\ucrt64\bin\clang++.exe -g -Wl,--whole-archive CMakeFiles\riscv_instr_tests.dir/objects.a -Wl,--no-whole-archive -o riscv_instr_tests.exe -Wl,--out-implib,libriscv_instr_tests.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\riscv_instr_tests.dir\linkLibs.rsp

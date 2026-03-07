@@ -76,15 +76,15 @@ CMakeFiles/riscv_sim.dir/src/main.cpp.obj: CMakeFiles/riscv_sim.dir/includes_CXX
 CMakeFiles/riscv_sim.dir/src/main.cpp.obj: E:/RISC-V_Platform/src/main.cpp
 CMakeFiles/riscv_sim.dir/src/main.cpp.obj: CMakeFiles/riscv_sim.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/riscv_sim.dir/src/main.cpp.obj"
-	F:\msys64\ucrt64\bin\clang++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_sim.dir/src/main.cpp.obj -MF CMakeFiles\riscv_sim.dir\src\main.cpp.obj.d -o CMakeFiles\riscv_sim.dir\src\main.cpp.obj -c E:\RISC-V_Platform\src\main.cpp
+	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_sim.dir/src/main.cpp.obj -MF CMakeFiles\riscv_sim.dir\src\main.cpp.obj.d -o CMakeFiles\riscv_sim.dir\src\main.cpp.obj -c E:\RISC-V_Platform\src\main.cpp
 
 CMakeFiles/riscv_sim.dir/src/main.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/riscv_sim.dir/src/main.cpp.i"
-	F:\msys64\ucrt64\bin\clang++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\RISC-V_Platform\src\main.cpp > CMakeFiles\riscv_sim.dir\src\main.cpp.i
+	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\RISC-V_Platform\src\main.cpp > CMakeFiles\riscv_sim.dir\src\main.cpp.i
 
 CMakeFiles/riscv_sim.dir/src/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/riscv_sim.dir/src/main.cpp.s"
-	F:\msys64\ucrt64\bin\clang++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\RISC-V_Platform\src\main.cpp -o CMakeFiles\riscv_sim.dir\src\main.cpp.s
+	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\RISC-V_Platform\src\main.cpp -o CMakeFiles\riscv_sim.dir\src\main.cpp.s
 
 # Object files for target riscv_sim
 riscv_sim_OBJECTS = \
