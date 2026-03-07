@@ -1,6 +1,6 @@
 CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.obj: \
- E:\RISC-V_Platform\src\elf_loader.cpp \
- E:/RISC-V_Platform/include/riscv/elf_loader.h \
+ E:\platform\RISC-V_Platform\src\elf_loader.cpp \
+ E:/platform/RISC-V_Platform/include/riscv/elf_loader.h \
  F:/msys64/ucrt64/include/c++/15.1.0/cstdint \
  F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/c++config.h \
  F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/os_defines.h \
@@ -113,7 +113,7 @@ CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.obj: \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_vector.h \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_bvector.h \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/vector.tcc \
- E:/RISC-V_Platform/include/riscv/types.h \
+ E:/platform/RISC-V_Platform/include/riscv/types.h \
  F:/msys64/ucrt64/include/c++/15.1.0/algorithm \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_algo.h \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/algorithmfwd.h \

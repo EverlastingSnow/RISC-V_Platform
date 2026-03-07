@@ -1,7 +1,7 @@
 {
 	"InstallScripts" : 
 	[
-		"E:/RISC-V_Platform/build/cmake_install.cmake"
+		"E:/platform/RISC-V_Platform/build/cmake_install.cmake"
 	],
 	"Parallel" : false
 }

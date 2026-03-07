@@ -52,10 +52,10 @@ RM = "C:\Program Files\CMake\bin\cmake.exe" -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = E:\RISC-V_Platform
+CMAKE_SOURCE_DIR = E:\platform\RISC-V_Platform
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = E:\RISC-V_Platform\build
+CMAKE_BINARY_DIR = E:\platform\RISC-V_Platform\build
 
 # Include any dependencies generated for this target.
 include CMakeFiles/riscv_core.dir/depend.make
@@ -73,78 +73,78 @@ CMakeFiles/riscv_core.dir/codegen:
 
 CMakeFiles/riscv_core.dir/src/memory.cpp.obj: CMakeFiles/riscv_core.dir/flags.make
 CMakeFiles/riscv_core.dir/src/memory.cpp.obj: CMakeFiles/riscv_core.dir/includes_CXX.rsp
-CMakeFiles/riscv_core.dir/src/memory.cpp.obj: E:/RISC-V_Platform/src/memory.cpp
+CMakeFiles/riscv_core.dir/src/memory.cpp.obj: E:/platform/RISC-V_Platform/src/memory.cpp
 CMakeFiles/riscv_core.dir/src/memory.cpp.obj: CMakeFiles/riscv_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/riscv_core.dir/src/memory.cpp.obj"
-	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_core.dir/src/memory.cpp.obj -MF CMakeFiles\riscv_core.dir\src\memory.cpp.obj.d -o CMakeFiles\riscv_core.dir\src\memory.cpp.obj -c E:\RISC-V_Platform\src\memory.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/riscv_core.dir/src/memory.cpp.obj"
+	F:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_core.dir/src/memory.cpp.obj -MF CMakeFiles\riscv_core.dir\src\memory.cpp.obj.d -o CMakeFiles\riscv_core.dir\src\memory.cpp.obj -c E:\platform\RISC-V_Platform\src\memory.cpp
 
 CMakeFiles/riscv_core.dir/src/memory.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/riscv_core.dir/src/memory.cpp.i"
-	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\RISC-V_Platform\src\memory.cpp > CMakeFiles\riscv_core.dir\src\memory.cpp.i
+	F:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\platform\RISC-V_Platform\src\memory.cpp > CMakeFiles\riscv_core.dir\src\memory.cpp.i
 
 CMakeFiles/riscv_core.dir/src/memory.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/riscv_core.dir/src/memory.cpp.s"
-	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\RISC-V_Platform\src\memory.cpp -o CMakeFiles\riscv_core.dir\src\memory.cpp.s
+	F:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\platform\RISC-V_Platform\src\memory.cpp -o CMakeFiles\riscv_core.dir\src\memory.cpp.s
 
 CMakeFiles/riscv_core.dir/src/register_file.cpp.obj: CMakeFiles/riscv_core.dir/flags.make
 CMakeFiles/riscv_core.dir/src/register_file.cpp.obj: CMakeFiles/riscv_core.dir/includes_CXX.rsp
-CMakeFiles/riscv_core.dir/src/register_file.cpp.obj: E:/RISC-V_Platform/src/register_file.cpp
+CMakeFiles/riscv_core.dir/src/register_file.cpp.obj: E:/platform/RISC-V_Platform/src/register_file.cpp
 CMakeFiles/riscv_core.dir/src/register_file.cpp.obj: CMakeFiles/riscv_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/riscv_core.dir/src/register_file.cpp.obj"
-	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_core.dir/src/register_file.cpp.obj -MF CMakeFiles\riscv_core.dir\src\register_file.cpp.obj.d -o CMakeFiles\riscv_core.dir\src\register_file.cpp.obj -c E:\RISC-V_Platform\src\register_file.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/riscv_core.dir/src/register_file.cpp.obj"
+	F:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_core.dir/src/register_file.cpp.obj -MF CMakeFiles\riscv_core.dir\src\register_file.cpp.obj.d -o CMakeFiles\riscv_core.dir\src\register_file.cpp.obj -c E:\platform\RISC-V_Platform\src\register_file.cpp
 
 CMakeFiles/riscv_core.dir/src/register_file.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/riscv_core.dir/src/register_file.cpp.i"
-	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\RISC-V_Platform\src\register_file.cpp > CMakeFiles\riscv_core.dir\src\register_file.cpp.i
+	F:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\platform\RISC-V_Platform\src\register_file.cpp > CMakeFiles\riscv_core.dir\src\register_file.cpp.i
 
 CMakeFiles/riscv_core.dir/src/register_file.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/riscv_core.dir/src/register_file.cpp.s"
-	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\RISC-V_Platform\src\register_file.cpp -o CMakeFiles\riscv_core.dir\src\register_file.cpp.s
+	F:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\platform\RISC-V_Platform\src\register_file.cpp -o CMakeFiles\riscv_core.dir\src\register_file.cpp.s
 
 CMakeFiles/riscv_core.dir/src/decoder.cpp.obj: CMakeFiles/riscv_core.dir/flags.make
 CMakeFiles/riscv_core.dir/src/decoder.cpp.obj: CMakeFiles/riscv_core.dir/includes_CXX.rsp
-CMakeFiles/riscv_core.dir/src/decoder.cpp.obj: E:/RISC-V_Platform/src/decoder.cpp
+CMakeFiles/riscv_core.dir/src/decoder.cpp.obj: E:/platform/RISC-V_Platform/src/decoder.cpp
 CMakeFiles/riscv_core.dir/src/decoder.cpp.obj: CMakeFiles/riscv_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/riscv_core.dir/src/decoder.cpp.obj"
-	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_core.dir/src/decoder.cpp.obj -MF CMakeFiles\riscv_core.dir\src\decoder.cpp.obj.d -o CMakeFiles\riscv_core.dir\src\decoder.cpp.obj -c E:\RISC-V_Platform\src\decoder.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/riscv_core.dir/src/decoder.cpp.obj"
+	F:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_core.dir/src/decoder.cpp.obj -MF CMakeFiles\riscv_core.dir\src\decoder.cpp.obj.d -o CMakeFiles\riscv_core.dir\src\decoder.cpp.obj -c E:\platform\RISC-V_Platform\src\decoder.cpp
 
 CMakeFiles/riscv_core.dir/src/decoder.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/riscv_core.dir/src/decoder.cpp.i"
-	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\RISC-V_Platform\src\decoder.cpp > CMakeFiles\riscv_core.dir\src\decoder.cpp.i
+	F:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\platform\RISC-V_Platform\src\decoder.cpp > CMakeFiles\riscv_core.dir\src\decoder.cpp.i
 
 CMakeFiles/riscv_core.dir/src/decoder.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/riscv_core.dir/src/decoder.cpp.s"
-	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\RISC-V_Platform\src\decoder.cpp -o CMakeFiles\riscv_core.dir\src\decoder.cpp.s
+	F:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\platform\RISC-V_Platform\src\decoder.cpp -o CMakeFiles\riscv_core.dir\src\decoder.cpp.s
 
 CMakeFiles/riscv_core.dir/src/csr.cpp.obj: CMakeFiles/riscv_core.dir/flags.make
 CMakeFiles/riscv_core.dir/src/csr.cpp.obj: CMakeFiles/riscv_core.dir/includes_CXX.rsp
-CMakeFiles/riscv_core.dir/src/csr.cpp.obj: E:/RISC-V_Platform/src/csr.cpp
+CMakeFiles/riscv_core.dir/src/csr.cpp.obj: E:/platform/RISC-V_Platform/src/csr.cpp
 CMakeFiles/riscv_core.dir/src/csr.cpp.obj: CMakeFiles/riscv_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/riscv_core.dir/src/csr.cpp.obj"
-	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_core.dir/src/csr.cpp.obj -MF CMakeFiles\riscv_core.dir\src\csr.cpp.obj.d -o CMakeFiles\riscv_core.dir\src\csr.cpp.obj -c E:\RISC-V_Platform\src\csr.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/riscv_core.dir/src/csr.cpp.obj"
+	F:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_core.dir/src/csr.cpp.obj -MF CMakeFiles\riscv_core.dir\src\csr.cpp.obj.d -o CMakeFiles\riscv_core.dir\src\csr.cpp.obj -c E:\platform\RISC-V_Platform\src\csr.cpp
 
 CMakeFiles/riscv_core.dir/src/csr.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/riscv_core.dir/src/csr.cpp.i"
-	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\RISC-V_Platform\src\csr.cpp > CMakeFiles\riscv_core.dir\src\csr.cpp.i
+	F:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\platform\RISC-V_Platform\src\csr.cpp > CMakeFiles\riscv_core.dir\src\csr.cpp.i
 
 CMakeFiles/riscv_core.dir/src/csr.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/riscv_core.dir/src/csr.cpp.s"
-	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\RISC-V_Platform\src\csr.cpp -o CMakeFiles\riscv_core.dir\src\csr.cpp.s
+	F:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\platform\RISC-V_Platform\src\csr.cpp -o CMakeFiles\riscv_core.dir\src\csr.cpp.s
 
 CMakeFiles/riscv_core.dir/src/simulator.cpp.obj: CMakeFiles/riscv_core.dir/flags.make
 CMakeFiles/riscv_core.dir/src/simulator.cpp.obj: CMakeFiles/riscv_core.dir/includes_CXX.rsp
-CMakeFiles/riscv_core.dir/src/simulator.cpp.obj: E:/RISC-V_Platform/src/simulator.cpp
+CMakeFiles/riscv_core.dir/src/simulator.cpp.obj: E:/platform/RISC-V_Platform/src/simulator.cpp
 CMakeFiles/riscv_core.dir/src/simulator.cpp.obj: CMakeFiles/riscv_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/riscv_core.dir/src/simulator.cpp.obj"
-	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_core.dir/src/simulator.cpp.obj -MF CMakeFiles\riscv_core.dir\src\simulator.cpp.obj.d -o CMakeFiles\riscv_core.dir\src\simulator.cpp.obj -c E:\RISC-V_Platform\src\simulator.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/riscv_core.dir/src/simulator.cpp.obj"
+	F:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/riscv_core.dir/src/simulator.cpp.obj -MF CMakeFiles\riscv_core.dir\src\simulator.cpp.obj.d -o CMakeFiles\riscv_core.dir\src\simulator.cpp.obj -c E:\platform\RISC-V_Platform\src\simulator.cpp
 
 CMakeFiles/riscv_core.dir/src/simulator.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/riscv_core.dir/src/simulator.cpp.i"
-	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\RISC-V_Platform\src\simulator.cpp > CMakeFiles\riscv_core.dir\src\simulator.cpp.i
+	F:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E E:\platform\RISC-V_Platform\src\simulator.cpp > CMakeFiles\riscv_core.dir\src\simulator.cpp.i
 
 CMakeFiles/riscv_core.dir/src/simulator.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/riscv_core.dir/src/simulator.cpp.s"
-	F:\msys64\ucrt64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\RISC-V_Platform\src\simulator.cpp -o CMakeFiles\riscv_core.dir\src\simulator.cpp.s
+	F:\msys64\ucrt64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S E:\platform\RISC-V_Platform\src\simulator.cpp -o CMakeFiles\riscv_core.dir\src\simulator.cpp.s
 
 # Object files for target riscv_core
 riscv_core_OBJECTS = \
@@ -164,7 +164,7 @@ libriscv_core.a: CMakeFiles/riscv_core.dir/src/csr.cpp.obj
 libriscv_core.a: CMakeFiles/riscv_core.dir/src/simulator.cpp.obj
 libriscv_core.a: CMakeFiles/riscv_core.dir/build.make
 libriscv_core.a: CMakeFiles/riscv_core.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX static library libriscv_core.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX static library libriscv_core.a"
 	$(CMAKE_COMMAND) -P CMakeFiles\riscv_core.dir\cmake_clean_target.cmake
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles\riscv_core.dir\link.txt --verbose=$(VERBOSE)
 
@@ -177,6 +177,6 @@ CMakeFiles/riscv_core.dir/clean:
 .PHONY : CMakeFiles/riscv_core.dir/clean
 
 CMakeFiles/riscv_core.dir/depend:
-	$(CMAKE_COMMAND) -E cmake_depends "MinGW Makefiles" E:\RISC-V_Platform E:\RISC-V_Platform E:\RISC-V_Platform\build E:\RISC-V_Platform\build E:\RISC-V_Platform\build\CMakeFiles\riscv_core.dir\DependInfo.cmake "--color=$(COLOR)"
+	$(CMAKE_COMMAND) -E cmake_depends "MinGW Makefiles" E:\platform\RISC-V_Platform E:\platform\RISC-V_Platform E:\platform\RISC-V_Platform\build E:\platform\RISC-V_Platform\build E:\platform\RISC-V_Platform\build\CMakeFiles\riscv_core.dir\DependInfo.cmake "--color=$(COLOR)"
 .PHONY : CMakeFiles/riscv_core.dir/depend
 

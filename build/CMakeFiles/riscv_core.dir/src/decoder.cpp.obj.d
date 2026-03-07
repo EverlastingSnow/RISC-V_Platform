@@ -1,6 +1,6 @@
 CMakeFiles/riscv_core.dir/src/decoder.cpp.obj: \
- E:\RISC-V_Platform\src\decoder.cpp \
- E:/RISC-V_Platform/include/riscv/decoder.h \
+ E:\platform\RISC-V_Platform\src\decoder.cpp \
+ E:/platform/RISC-V_Platform/include/riscv/decoder.h \
  F:/msys64/ucrt64/include/c++/15.1.0/cstdint \
  F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/c++config.h \
  F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/os_defines.h \
@@ -108,7 +108,7 @@ CMakeFiles/riscv_core.dir/src/decoder.cpp.obj: \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/uses_allocator_args.h \
  F:/msys64/ucrt64/include/c++/15.1.0/tuple \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/ranges_util.h \
- E:/RISC-V_Platform/include/riscv/types.h \
+ E:/platform/RISC-V_Platform/include/riscv/types.h \
  F:/msys64/ucrt64/include/c++/15.1.0/array \
  F:/msys64/ucrt64/include/c++/15.1.0/stdexcept \
  F:/msys64/ucrt64/include/c++/15.1.0/exception \

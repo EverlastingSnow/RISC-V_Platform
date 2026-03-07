@@ -8,8 +8,8 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "E:/RISC-V_Platform/src/elf_loader.cpp" "CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.obj" "gcc" "CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.obj.d"
-  "E:/RISC-V_Platform/src/run_riscv_tests.cpp" "CMakeFiles/run_riscv_tests.dir/src/run_riscv_tests.cpp.obj" "gcc" "CMakeFiles/run_riscv_tests.dir/src/run_riscv_tests.cpp.obj.d"
+  "E:/platform/RISC-V_Platform/src/elf_loader.cpp" "CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.obj" "gcc" "CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.obj.d"
+  "E:/platform/RISC-V_Platform/src/run_riscv_tests.cpp" "CMakeFiles/run_riscv_tests.dir/src/run_riscv_tests.cpp.obj" "gcc" "CMakeFiles/run_riscv_tests.dir/src/run_riscv_tests.cpp.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

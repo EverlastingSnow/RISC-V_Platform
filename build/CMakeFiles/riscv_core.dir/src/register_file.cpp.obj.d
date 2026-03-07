@@ -1,6 +1,6 @@
 CMakeFiles/riscv_core.dir/src/register_file.cpp.obj: \
- E:\RISC-V_Platform\src\register_file.cpp \
- E:/RISC-V_Platform/include/riscv/register_file.h \
+ E:\platform\RISC-V_Platform\src\register_file.cpp \
+ E:/platform/RISC-V_Platform/include/riscv/register_file.h \
  F:/msys64/ucrt64/include/c++/15.1.0/array \
  F:/msys64/ucrt64/include/c++/15.1.0/compare \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/version.h \
@@ -109,7 +109,7 @@ CMakeFiles/riscv_core.dir/src/register_file.cpp.obj: \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/uses_allocator_args.h \
  F:/msys64/ucrt64/include/c++/15.1.0/tuple \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/ranges_util.h \
- E:/RISC-V_Platform/include/riscv/types.h \
+ E:/platform/RISC-V_Platform/include/riscv/types.h \
  F:/msys64/ucrt64/include/c++/15.1.0/stdexcept \
  F:/msys64/ucrt64/include/c++/15.1.0/exception \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/exception_ptr.h \

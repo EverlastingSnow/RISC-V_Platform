@@ -42,6 +42,18 @@ public:
     [[nodiscard]] u64 halt_pc() const { return halt_pc_; }
     [[nodiscard]] u32 halt_inst() const { return halt_inst_; }
 
+    // Additional methods to expose internal state for API
+    [[nodiscard]] const IFID& if_id() const { return if_id_; }
+    [[nodiscard]] const IDEX& id_ex() const { return id_ex_; }
+    [[nodiscard]] const EXMEM& ex_mem() const { return ex_mem_; }
+    [[nodiscard]] const MEMWB& mem_wb() const { return mem_wb_; }
+    [[nodiscard]] bool stall_fetch() const { return stall_fetch_; }
+    [[nodiscard]] bool redirect() const { return redirect_; }
+    [[nodiscard]] u64 redirect_target() const { return redirect_target_; }
+    [[nodiscard]] bool flush_decode() const { return flush_decode_; }
+    [[nodiscard]] bool flush_execute() const { return flush_execute_; }
+    [[nodiscard]] u64 next_pc() const { return next_pc_; }
+
 private:
     void stage_if();
     void stage_id();

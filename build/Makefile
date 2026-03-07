@@ -56,10 +56,10 @@ RM = "C:\Program Files\CMake\bin\cmake.exe" -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = E:\RISC-V_Platform
+CMAKE_SOURCE_DIR = E:\platform\RISC-V_Platform
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = E:\RISC-V_Platform\build
+CMAKE_BINARY_DIR = E:\platform\RISC-V_Platform\build
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -86,9 +86,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start E:\RISC-V_Platform\build\CMakeFiles E:\RISC-V_Platform\build\\CMakeFiles\progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start E:\platform\RISC-V_Platform\build\CMakeFiles E:\platform\RISC-V_Platform\build\\CMakeFiles\progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start E:\RISC-V_Platform\build\CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start E:\platform\RISC-V_Platform\build\CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -167,6 +167,19 @@ run_riscv_tests/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\run_riscv_tests.dir\build.make CMakeFiles/run_riscv_tests.dir/build
 .PHONY : run_riscv_tests/fast
 
+#=============================================================================
+# Target rules for targets named riscv_sim_server
+
+# Build rule for target.
+riscv_sim_server: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 riscv_sim_server
+.PHONY : riscv_sim_server
+
+# fast build rule for target.
+riscv_sim_server/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim_server.dir\build.make CMakeFiles/riscv_sim_server.dir/build
+.PHONY : riscv_sim_server/fast
+
 src/csr.obj: src/csr.cpp.obj
 .PHONY : src/csr.obj
 
@@ -222,6 +235,7 @@ src/elf_loader.obj: src/elf_loader.cpp.obj
 src/elf_loader.cpp.obj:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_instr_tests.dir\build.make CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.obj
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\run_riscv_tests.dir\build.make CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim_server.dir\build.make CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.obj
 .PHONY : src/elf_loader.cpp.obj
 
 src/elf_loader.i: src/elf_loader.cpp.i
@@ -231,6 +245,7 @@ src/elf_loader.i: src/elf_loader.cpp.i
 src/elf_loader.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_instr_tests.dir\build.make CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\run_riscv_tests.dir\build.make CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim_server.dir\build.make CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.i
 .PHONY : src/elf_loader.cpp.i
 
 src/elf_loader.s: src/elf_loader.cpp.s
@@ -240,6 +255,7 @@ src/elf_loader.s: src/elf_loader.cpp.s
 src/elf_loader.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_instr_tests.dir\build.make CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\run_riscv_tests.dir\build.make CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim_server.dir\build.make CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.s
 .PHONY : src/elf_loader.cpp.s
 
 src/main.obj: src/main.cpp.obj
@@ -313,6 +329,30 @@ src/register_file.s: src/register_file.cpp.s
 src/register_file.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_core.dir\build.make CMakeFiles/riscv_core.dir/src/register_file.cpp.s
 .PHONY : src/register_file.cpp.s
+
+src/riscv_sim_server.obj: src/riscv_sim_server.cpp.obj
+.PHONY : src/riscv_sim_server.obj
+
+# target to build an object file
+src/riscv_sim_server.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim_server.dir\build.make CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.obj
+.PHONY : src/riscv_sim_server.cpp.obj
+
+src/riscv_sim_server.i: src/riscv_sim_server.cpp.i
+.PHONY : src/riscv_sim_server.i
+
+# target to preprocess a source file
+src/riscv_sim_server.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim_server.dir\build.make CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.i
+.PHONY : src/riscv_sim_server.cpp.i
+
+src/riscv_sim_server.s: src/riscv_sim_server.cpp.s
+.PHONY : src/riscv_sim_server.s
+
+# target to generate assembly for a file
+src/riscv_sim_server.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim_server.dir\build.make CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.s
+.PHONY : src/riscv_sim_server.cpp.s
 
 src/run_riscv_tests.obj: src/run_riscv_tests.cpp.obj
 .PHONY : src/run_riscv_tests.obj
@@ -397,6 +437,7 @@ help:
 	@echo ... riscv_core
 	@echo ... riscv_instr_tests
 	@echo ... riscv_sim
+	@echo ... riscv_sim_server
 	@echo ... run_riscv_tests
 	@echo ... src/csr.obj
 	@echo ... src/csr.i
@@ -416,6 +457,9 @@ help:
 	@echo ... src/register_file.obj
 	@echo ... src/register_file.i
 	@echo ... src/register_file.s
+	@echo ... src/riscv_sim_server.obj
+	@echo ... src/riscv_sim_server.i
+	@echo ... src/riscv_sim_server.s
 	@echo ... src/run_riscv_tests.obj
 	@echo ... src/run_riscv_tests.i
 	@echo ... src/run_riscv_tests.s

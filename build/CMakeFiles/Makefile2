@@ -53,10 +53,10 @@ RM = "C:\Program Files\CMake\bin\cmake.exe" -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = E:\RISC-V_Platform
+CMAKE_SOURCE_DIR = E:\platform\RISC-V_Platform
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = E:\RISC-V_Platform\build
+CMAKE_BINARY_DIR = E:\platform\RISC-V_Platform\build
 
 #=============================================================================
 # Directory level rules for the build root directory
@@ -66,6 +66,7 @@ all: CMakeFiles/riscv_core.dir/all
 all: CMakeFiles/riscv_sim.dir/all
 all: CMakeFiles/riscv_instr_tests.dir/all
 all: CMakeFiles/run_riscv_tests.dir/all
+all: CMakeFiles/riscv_sim_server.dir/all
 .PHONY : all
 
 # The main recursive "codegen" target.
@@ -73,6 +74,7 @@ codegen: CMakeFiles/riscv_core.dir/codegen
 codegen: CMakeFiles/riscv_sim.dir/codegen
 codegen: CMakeFiles/riscv_instr_tests.dir/codegen
 codegen: CMakeFiles/run_riscv_tests.dir/codegen
+codegen: CMakeFiles/riscv_sim_server.dir/codegen
 .PHONY : codegen
 
 # The main recursive "preinstall" target.
@@ -84,6 +86,7 @@ clean: CMakeFiles/riscv_core.dir/clean
 clean: CMakeFiles/riscv_sim.dir/clean
 clean: CMakeFiles/riscv_instr_tests.dir/clean
 clean: CMakeFiles/run_riscv_tests.dir/clean
+clean: CMakeFiles/riscv_sim_server.dir/clean
 .PHONY : clean
 
 #=============================================================================
@@ -93,14 +96,14 @@ clean: CMakeFiles/run_riscv_tests.dir/clean
 CMakeFiles/riscv_core.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_core.dir\build.make CMakeFiles/riscv_core.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_core.dir\build.make CMakeFiles/riscv_core.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=1,2,3,4,5,6 "Built target riscv_core"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=1,2,3,4,5,6 "Built target riscv_core"
 .PHONY : CMakeFiles/riscv_core.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/riscv_core.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start E:\RISC-V_Platform\build\CMakeFiles 6
+	$(CMAKE_COMMAND) -E cmake_progress_start E:\platform\RISC-V_Platform\build\CMakeFiles 6
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/riscv_core.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start E:\RISC-V_Platform\build\CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start E:\platform\RISC-V_Platform\build\CMakeFiles 0
 .PHONY : CMakeFiles/riscv_core.dir/rule
 
 # Convenience name for target.
@@ -110,7 +113,7 @@ riscv_core: CMakeFiles/riscv_core.dir/rule
 # codegen rule for target.
 CMakeFiles/riscv_core.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_core.dir\build.make CMakeFiles/riscv_core.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=1,2,3,4,5,6 "Finished codegen for target riscv_core"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=1,2,3,4,5,6 "Finished codegen for target riscv_core"
 .PHONY : CMakeFiles/riscv_core.dir/codegen
 
 # clean rule for target.
@@ -125,14 +128,14 @@ CMakeFiles/riscv_core.dir/clean:
 CMakeFiles/riscv_sim.dir/all: CMakeFiles/riscv_core.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim.dir\build.make CMakeFiles/riscv_sim.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim.dir\build.make CMakeFiles/riscv_sim.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=10,11 "Built target riscv_sim"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=10,11 "Built target riscv_sim"
 .PHONY : CMakeFiles/riscv_sim.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/riscv_sim.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start E:\RISC-V_Platform\build\CMakeFiles 8
+	$(CMAKE_COMMAND) -E cmake_progress_start E:\platform\RISC-V_Platform\build\CMakeFiles 8
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/riscv_sim.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start E:\RISC-V_Platform\build\CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start E:\platform\RISC-V_Platform\build\CMakeFiles 0
 .PHONY : CMakeFiles/riscv_sim.dir/rule
 
 # Convenience name for target.
@@ -142,7 +145,7 @@ riscv_sim: CMakeFiles/riscv_sim.dir/rule
 # codegen rule for target.
 CMakeFiles/riscv_sim.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim.dir\build.make CMakeFiles/riscv_sim.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=10,11 "Finished codegen for target riscv_sim"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=10,11 "Finished codegen for target riscv_sim"
 .PHONY : CMakeFiles/riscv_sim.dir/codegen
 
 # clean rule for target.
@@ -157,14 +160,14 @@ CMakeFiles/riscv_sim.dir/clean:
 CMakeFiles/riscv_instr_tests.dir/all: CMakeFiles/riscv_core.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_instr_tests.dir\build.make CMakeFiles/riscv_instr_tests.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_instr_tests.dir\build.make CMakeFiles/riscv_instr_tests.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=7,8,9 "Built target riscv_instr_tests"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=7,8,9 "Built target riscv_instr_tests"
 .PHONY : CMakeFiles/riscv_instr_tests.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/riscv_instr_tests.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start E:\RISC-V_Platform\build\CMakeFiles 9
+	$(CMAKE_COMMAND) -E cmake_progress_start E:\platform\RISC-V_Platform\build\CMakeFiles 9
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/riscv_instr_tests.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start E:\RISC-V_Platform\build\CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start E:\platform\RISC-V_Platform\build\CMakeFiles 0
 .PHONY : CMakeFiles/riscv_instr_tests.dir/rule
 
 # Convenience name for target.
@@ -174,7 +177,7 @@ riscv_instr_tests: CMakeFiles/riscv_instr_tests.dir/rule
 # codegen rule for target.
 CMakeFiles/riscv_instr_tests.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_instr_tests.dir\build.make CMakeFiles/riscv_instr_tests.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=7,8,9 "Finished codegen for target riscv_instr_tests"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=7,8,9 "Finished codegen for target riscv_instr_tests"
 .PHONY : CMakeFiles/riscv_instr_tests.dir/codegen
 
 # clean rule for target.
@@ -189,14 +192,14 @@ CMakeFiles/riscv_instr_tests.dir/clean:
 CMakeFiles/run_riscv_tests.dir/all: CMakeFiles/riscv_core.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\run_riscv_tests.dir\build.make CMakeFiles/run_riscv_tests.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\run_riscv_tests.dir\build.make CMakeFiles/run_riscv_tests.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=12,13,14 "Built target run_riscv_tests"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=15,16,17 "Built target run_riscv_tests"
 .PHONY : CMakeFiles/run_riscv_tests.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/run_riscv_tests.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start E:\RISC-V_Platform\build\CMakeFiles 9
+	$(CMAKE_COMMAND) -E cmake_progress_start E:\platform\RISC-V_Platform\build\CMakeFiles 9
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/run_riscv_tests.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start E:\RISC-V_Platform\build\CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start E:\platform\RISC-V_Platform\build\CMakeFiles 0
 .PHONY : CMakeFiles/run_riscv_tests.dir/rule
 
 # Convenience name for target.
@@ -206,13 +209,45 @@ run_riscv_tests: CMakeFiles/run_riscv_tests.dir/rule
 # codegen rule for target.
 CMakeFiles/run_riscv_tests.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\run_riscv_tests.dir\build.make CMakeFiles/run_riscv_tests.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\RISC-V_Platform\build\CMakeFiles --progress-num=12,13,14 "Finished codegen for target run_riscv_tests"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=15,16,17 "Finished codegen for target run_riscv_tests"
 .PHONY : CMakeFiles/run_riscv_tests.dir/codegen
 
 # clean rule for target.
 CMakeFiles/run_riscv_tests.dir/clean:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\run_riscv_tests.dir\build.make CMakeFiles/run_riscv_tests.dir/clean
 .PHONY : CMakeFiles/run_riscv_tests.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/riscv_sim_server.dir
+
+# All Build rule for target.
+CMakeFiles/riscv_sim_server.dir/all: CMakeFiles/riscv_core.dir/all
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim_server.dir\build.make CMakeFiles/riscv_sim_server.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim_server.dir\build.make CMakeFiles/riscv_sim_server.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=12,13,14 "Built target riscv_sim_server"
+.PHONY : CMakeFiles/riscv_sim_server.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/riscv_sim_server.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start E:\platform\RISC-V_Platform\build\CMakeFiles 9
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/riscv_sim_server.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start E:\platform\RISC-V_Platform\build\CMakeFiles 0
+.PHONY : CMakeFiles/riscv_sim_server.dir/rule
+
+# Convenience name for target.
+riscv_sim_server: CMakeFiles/riscv_sim_server.dir/rule
+.PHONY : riscv_sim_server
+
+# codegen rule for target.
+CMakeFiles/riscv_sim_server.dir/codegen:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim_server.dir\build.make CMakeFiles/riscv_sim_server.dir/codegen
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=E:\platform\RISC-V_Platform\build\CMakeFiles --progress-num=12,13,14 "Finished codegen for target riscv_sim_server"
+.PHONY : CMakeFiles/riscv_sim_server.dir/codegen
+
+# clean rule for target.
+CMakeFiles/riscv_sim_server.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim_server.dir\build.make CMakeFiles/riscv_sim_server.dir/clean
+.PHONY : CMakeFiles/riscv_sim_server.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

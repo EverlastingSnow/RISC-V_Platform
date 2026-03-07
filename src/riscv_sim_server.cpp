@@ -1,0 +1,287 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <cstring>
+#include <csignal>
+#include <atomic>
+#include <memory>
+
+#include "riscv/simulator.h"
+#include "riscv/elf_loader.h"
+#include "riscv/decoder.h"
+
+namespace {
+
+std::atomic<bool> g_running{true};
+
+void signal_handler(int) {
+    g_running = false;
+}
+
+bool uses_rs1(riscv::InstructionKind kind) {
+    switch (kind) {
+        case riscv::InstructionKind::LUI:
+        case riscv::InstructionKind::AUIPC:
+        case riscv::InstructionKind::JAL:
+        case riscv::InstructionKind::FENCE:
+        case riscv::InstructionKind::FENCE_I:
+        case riscv::InstructionKind::ECALL:
+        case riscv::InstructionKind::EBREAK:
+        case riscv::InstructionKind::MRET:
+        case riscv::InstructionKind::CSRRWI:
+        case riscv::InstructionKind::CSRRSI:
+        case riscv::InstructionKind::CSRRCI:
+            return false;
+        default:
+            break;
+    }
+    return true;
+}
+
+bool uses_rs2(riscv::InstructionKind kind) {
+    switch (kind) {
+        case riscv::InstructionKind::SB:
+        case riscv::InstructionKind::SH:
+        case riscv::InstructionKind::SW:
+        case riscv::InstructionKind::SD:
+        case riscv::InstructionKind::ADD:
+        case riscv::InstructionKind::SUB:
+        case riscv::InstructionKind::SLL:
+        case riscv::InstructionKind::SLT:
+        case riscv::InstructionKind::SLTU:
+        case riscv::InstructionKind::XOR:
+        case riscv::InstructionKind::SRL:
+        case riscv::InstructionKind::SRA:
+        case riscv::InstructionKind::OR:
+        case riscv::InstructionKind::AND:
+        case riscv::InstructionKind::ADDW:
+        case riscv::InstructionKind::SUBW:
+        case riscv::InstructionKind::SLLW:
+        case riscv::InstructionKind::SRLW:
+        case riscv::InstructionKind::SRAW:
+        case riscv::InstructionKind::MUL:
+        case riscv::InstructionKind::MULH:
+        case riscv::InstructionKind::MULHSU:
+        case riscv::InstructionKind::MULHU:
+        case riscv::InstructionKind::DIV:
+        case riscv::InstructionKind::DIVU:
+        case riscv::InstructionKind::REM:
+        case riscv::InstructionKind::REMU:
+        case riscv::InstructionKind::MULW:
+        case riscv::InstructionKind::DIVW:
+        case riscv::InstructionKind::DIVUW:
+        case riscv::InstructionKind::REMW:
+        case riscv::InstructionKind::REMUW:
+        case riscv::InstructionKind::BEQ:
+        case riscv::InstructionKind::BNE:
+        case riscv::InstructionKind::BLT:
+        case riscv::InstructionKind::BGE:
+        case riscv::InstructionKind::BLTU:
+        case riscv::InstructionKind::BGEU:
+            return true;
+        default:
+            return false;
+    }
+}
+
+std::string escape_json(const std::string& s) {
+    std::string result;
+    for (char c : s) {
+        switch (c) {
+            case '"': result += "\\\""; break;
+            case '\\': result += "\\\\"; break;
+            case '\b': result += "\\b"; break;
+            case '\f': result += "\\f"; break;
+            case '\n': result += "\\n"; break;
+            case '\r': result += "\\r"; break;
+            case '\t': result += "\\t"; break;
+            default: result += c; break;
+        }
+    }
+    return result;
+}
+
+void output_signals(riscv::RISCVSimulator& sim) {
+    const auto& if_id = sim.if_id();
+    const auto& id_ex = sim.id_ex();
+    const auto& ex_mem = sim.ex_mem();
+    const auto& mem_wb = sim.mem_wb();
+
+    std::cout << "{\"cycle\":" << sim.cycle()
+              << ",\"pc\":\"0x" << std::hex << sim.pc() << std::dec << "\"";
+
+    std::cout << ",\"fetch\":{"
+              << "\"pc\":\"0x" << std::hex << sim.pc() << std::dec << "\","
+              << "\"valid\":" << (if_id.valid ? "true" : "false") << ","
+              << "\"target\":\"0x" << std::hex << sim.redirect_target() << std::dec << "\","
+              << "\"taken\":" << (sim.redirect() ? "true" : "false") << ","
+              << "\"PC_next\":\"0x" << std::hex << sim.next_pc() << std::dec << "\","
+              << "\"allow_to_go\":" << ((!sim.stall_fetch() && !sim.halted()) ? "true" : "false")
+              << "}";
+
+    auto decode_instr = if_id.valid ? riscv::decode(if_id.inst, if_id.pc) : riscv::DecodedInstruction{};
+    riscv::u32 src1_raddr = if_id.valid && uses_rs1(decode_instr.kind) ? decode_instr.rs1 : 0;
+    riscv::u32 src2_raddr = if_id.valid && uses_rs2(decode_instr.kind) ? decode_instr.rs2 : 0;
+
+    std::cout << ",\"decode\":{"
+              << "\"pc\":\"0x" << std::hex << (if_id.valid ? if_id.pc : 0) << std::dec << "\","
+              << "\"inst\":" << (if_id.valid ? if_id.inst : 0) << ","
+              << "\"src1_raddr\":" << src1_raddr << ","
+              << "\"src1_rdata\":\"0x" << std::hex << sim.registers().read(src1_raddr) << std::dec << "\","
+              << "\"src2_raddr\":" << src2_raddr << ","
+              << "\"src2_rdata\":\"0x" << std::hex << sim.registers().read(src2_raddr) << std::dec << "\","
+              << "\"decodeInfo\":{\"src1_ren\":" << (if_id.valid && uses_rs1(decode_instr.kind) ? "true" : "false")
+              << ",\"src2_ren\":" << (if_id.valid && uses_rs2(decode_instr.kind) ? "true" : "false")
+              << ",\"src1_raddr\":" << src1_raddr
+              << ",\"src2_raddr\":" << src2_raddr << "}}";
+
+    std::cout << ",\"execute\":{"
+              << "\"pc\":\"0x" << std::hex << (id_ex.valid ? id_ex.instr.pc : 0) << std::dec << "\","
+              << "\"alu_result\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.alu_result : 0) << std::dec << "\","
+              << "\"fu_type\":\"" << (id_ex.valid ? riscv::to_string(id_ex.instr.kind) : "NONE") << "\","
+              << "\"branch_taken\":" << (ex_mem.valid && ex_mem.branch_taken ? "true" : "false") << ","
+              << "\"branch_target\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.branch_target : 0) << std::dec << "\""
+              << "}";
+
+    bool mem_valid = ex_mem.valid && (ex_mem.instr.is_load() || ex_mem.instr.is_store());
+    std::cout << ",\"memory\":{"
+              << "\"pc\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.instr.pc : 0) << std::dec << "\","
+              << "\"valid\":" << (ex_mem.valid ? "true" : "false") << ","
+              << "\"mem_addr\":\"0x" << std::hex << (mem_valid ? ex_mem.alu_result : 0) << std::dec << "\","
+              << "\"mem_wen\":" << (ex_mem.valid && ex_mem.instr.is_store() ? "true" : "false") << ","
+              << "\"mem_ren\":" << (ex_mem.valid && ex_mem.instr.is_load() ? "true" : "false") << ","
+              << "\"info\":\"" << (ex_mem.valid ? riscv::to_string(ex_mem.instr.kind) : "NONE") << "\""
+              << "}";
+
+    std::cout << ",\"writeback\":{"
+              << "\"pc\":\"0x" << std::hex << (mem_wb.valid ? mem_wb.instr.pc : 0) << std::dec << "\","
+              << "\"valid\":" << (mem_wb.valid ? "true" : "false") << ","
+              << "\"debug_commit\":" << (mem_wb.valid ? "true" : "false") << ","
+              << "\"debug_pc\":\"0x" << std::hex << (mem_wb.valid ? mem_wb.instr.pc : 0) << std::dec << "\","
+              << "\"debug_wb_rf_wen\":" << (mem_wb.valid && mem_wb.instr.writes_rd() ? "true" : "false") << ","
+              << "\"debug_wb_rf_waddr\":" << (mem_wb.valid ? mem_wb.instr.rd : 0) << ","
+              << "\"debug_wb_rf_wdata\":\"0x" << std::hex << (mem_wb.valid ? mem_wb.wb_value : 0) << std::dec << "\""
+              << "}";
+
+    riscv::u32 wb_waddr = mem_wb.valid && mem_wb.instr.writes_rd() ? mem_wb.instr.rd : 0;
+    riscv::u64 wb_wdata = mem_wb.valid ? mem_wb.wb_value : 0;
+    std::cout << ",\"regfile\":{"
+              << "\"src1_raddr\":" << src1_raddr << ","
+              << "\"src1_rdata\":\"0x" << std::hex << sim.registers().read(src1_raddr) << std::dec << "\","
+              << "\"src2_raddr\":" << src2_raddr << ","
+              << "\"src2_rdata\":\"0x" << std::hex << sim.registers().read(src2_raddr) << std::dec << "\","
+              << "\"reg_wen\":" << (mem_wb.valid && mem_wb.instr.writes_rd() ? "true" : "false") << ","
+              << "\"reg_waddr\":" << wb_waddr << ","
+              << "\"reg_wdata\":\"0x" << std::hex << wb_wdata << std::dec << "\""
+              << "}";
+
+    bool datamem_en = ex_mem.valid && (ex_mem.instr.is_load() || ex_mem.instr.is_store());
+    std::cout << ",\"datamem\":{"
+              << "\"DataMEM_en\":" << (datamem_en ? "true" : "false") << ","
+              << "\"DataMEM_wen\":" << (ex_mem.valid && ex_mem.instr.is_store() ? "true" : "false") << ","
+              << "\"DataMEM_addr\":\"0x" << std::hex << (datamem_en ? ex_mem.alu_result : 0) << std::dec << "\","
+              << "\"DataMEM_rdata\":0,"
+              << "\"DataMEM_wdata\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.rs2_value : 0) << std::dec << "\""
+              << "}";
+
+    std::cout << ",\"halted\":" << (sim.halted() ? "true" : "false") << "}";
+    std::cout << std::endl;
+    std::cout.flush();
+}
+
+void output_registers(riscv::RISCVSimulator& sim) {
+    const auto& regs = sim.registers().raw();
+    std::cout << "{\"registers\":[";
+    for (int i = 0; i < 32; ++i) {
+        if (i > 0) std::cout << ",";
+        std::cout << "{\"addr\":" << i << ",\"value\":" << regs[i] << "}";
+    }
+    std::cout << "]}";
+    std::cout << std::endl;
+    std::cout.flush();
+}
+
+}  // namespace
+
+int main() {
+    std::signal(SIGINT, signal_handler);
+    std::signal(SIGTERM, signal_handler);
+
+    std::string line;
+    std::unique_ptr<riscv::RISCVSimulator> sim;
+
+    while (g_running && std::getline(std::cin, line)) {
+        if (line.empty()) continue;
+
+        std::istringstream iss(line);
+        std::string cmd;
+        iss >> cmd;
+
+        if (cmd == "load") {
+            std::string filepath;
+            iss >> filepath;
+
+            auto result = riscv::load_elf(filepath);
+            if (!result.success) {
+                std::cout << "{\"status\":\"error\",\"message\":\"Failed to load ELF: " << escape_json(result.error) << "\"}" << std::endl;
+                continue;
+            }
+
+            sim = std::make_unique<riscv::RISCVSimulator>();
+            sim->load_program(result.binary, result.load_offset);
+            std::cout << "{\"status\":\"ok\",\"message\":\"Loaded " << escape_json(filepath) << "\"}" << std::endl;
+
+        } else if (cmd == "step") {
+            if (!sim) {
+                std::cout << "{\"status\":\"error\",\"message\":\"No program loaded\"}" << std::endl;
+                continue;
+            }
+            if (sim->halted()) {
+                std::cout << "{\"status\":\"error\",\"message\":\"Simulation halted\"}" << std::endl;
+                continue;
+            }
+            sim->step();
+            output_signals(*sim);
+
+        } else if (cmd == "run") {
+            if (!sim) {
+                std::cout << "{\"status\":\"error\",\"message\":\"No program loaded\"}" << std::endl;
+                continue;
+            }
+            while (g_running && !sim->halted()) {
+                sim->step();
+                output_signals(*sim);
+            }
+
+        } else if (cmd == "reset") {
+            if (sim) {
+                sim->reset();
+            }
+            std::cout << "{\"status\":\"ok\",\"message\":\"Reset\"}" << std::endl;
+
+        } else if (cmd == "signals") {
+            if (!sim) {
+                std::cout << "{\"status\":\"error\",\"message\":\"No program loaded\"}" << std::endl;
+                continue;
+            }
+            output_signals(*sim);
+
+        } else if (cmd == "registers") {
+            if (!sim) {
+                std::cout << "{\"status\":\"error\",\"message\":\"No program loaded\"}" << std::endl;
+                continue;
+            }
+            output_registers(*sim);
+
+        } else if (cmd == "quit") {
+            break;
+
+        } else {
+            std::cout << "{\"status\":\"error\",\"message\":\"Unknown command: " << escape_json(cmd) << "\"}" << std::endl;
+        }
+    }
+
+    return 0;
+}

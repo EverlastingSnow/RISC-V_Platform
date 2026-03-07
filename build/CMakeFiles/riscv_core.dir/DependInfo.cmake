@@ -8,11 +8,11 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "E:/RISC-V_Platform/src/csr.cpp" "CMakeFiles/riscv_core.dir/src/csr.cpp.obj" "gcc" "CMakeFiles/riscv_core.dir/src/csr.cpp.obj.d"
-  "E:/RISC-V_Platform/src/decoder.cpp" "CMakeFiles/riscv_core.dir/src/decoder.cpp.obj" "gcc" "CMakeFiles/riscv_core.dir/src/decoder.cpp.obj.d"
-  "E:/RISC-V_Platform/src/memory.cpp" "CMakeFiles/riscv_core.dir/src/memory.cpp.obj" "gcc" "CMakeFiles/riscv_core.dir/src/memory.cpp.obj.d"
-  "E:/RISC-V_Platform/src/register_file.cpp" "CMakeFiles/riscv_core.dir/src/register_file.cpp.obj" "gcc" "CMakeFiles/riscv_core.dir/src/register_file.cpp.obj.d"
-  "E:/RISC-V_Platform/src/simulator.cpp" "CMakeFiles/riscv_core.dir/src/simulator.cpp.obj" "gcc" "CMakeFiles/riscv_core.dir/src/simulator.cpp.obj.d"
+  "E:/platform/RISC-V_Platform/src/csr.cpp" "CMakeFiles/riscv_core.dir/src/csr.cpp.obj" "gcc" "CMakeFiles/riscv_core.dir/src/csr.cpp.obj.d"
+  "E:/platform/RISC-V_Platform/src/decoder.cpp" "CMakeFiles/riscv_core.dir/src/decoder.cpp.obj" "gcc" "CMakeFiles/riscv_core.dir/src/decoder.cpp.obj.d"
+  "E:/platform/RISC-V_Platform/src/memory.cpp" "CMakeFiles/riscv_core.dir/src/memory.cpp.obj" "gcc" "CMakeFiles/riscv_core.dir/src/memory.cpp.obj.d"
+  "E:/platform/RISC-V_Platform/src/register_file.cpp" "CMakeFiles/riscv_core.dir/src/register_file.cpp.obj" "gcc" "CMakeFiles/riscv_core.dir/src/register_file.cpp.obj.d"
+  "E:/platform/RISC-V_Platform/src/simulator.cpp" "CMakeFiles/riscv_core.dir/src/simulator.cpp.obj" "gcc" "CMakeFiles/riscv_core.dir/src/simulator.cpp.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

@@ -1,6 +1,7 @@
-CMakeFiles/riscv_core.dir/src/csr.cpp.obj: E:\RISC-V_Platform\src\csr.cpp \
- E:/RISC-V_Platform/include/riscv/csr.h \
- E:/RISC-V_Platform/include/riscv/types.h \
+CMakeFiles/riscv_core.dir/src/csr.cpp.obj: \
+ E:\platform\RISC-V_Platform\src\csr.cpp \
+ E:/platform/RISC-V_Platform/include/riscv/csr.h \
+ E:/platform/RISC-V_Platform/include/riscv/types.h \
  F:/msys64/ucrt64/include/c++/15.1.0/cstdint \
  F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/c++config.h \
  F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/os_defines.h \

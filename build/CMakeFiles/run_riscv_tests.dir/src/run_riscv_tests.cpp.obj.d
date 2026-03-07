@@ -1,5 +1,5 @@
 CMakeFiles/run_riscv_tests.dir/src/run_riscv_tests.cpp.obj: \
- E:\RISC-V_Platform\src\run_riscv_tests.cpp \
+ E:\platform\RISC-V_Platform\src\run_riscv_tests.cpp \
  F:/msys64/ucrt64/include/c++/15.1.0/algorithm \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_algobase.h \
  F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/c++config.h \
@@ -198,12 +198,12 @@ CMakeFiles/run_riscv_tests.dir/src/run_riscv_tests.cpp.obj: \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_vector.h \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_bvector.h \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/vector.tcc \
- E:/RISC-V_Platform/include/riscv/elf_loader.h \
- E:/RISC-V_Platform/include/riscv/types.h \
- E:/RISC-V_Platform/include/riscv/simulator.h \
- E:/RISC-V_Platform/include/riscv/csr.h \
- E:/RISC-V_Platform/include/riscv/memory.h \
- E:/RISC-V_Platform/include/riscv/pipeline.h \
- E:/RISC-V_Platform/include/riscv/decoder.h \
- E:/RISC-V_Platform/include/riscv/register_file.h \
+ E:/platform/RISC-V_Platform/include/riscv/elf_loader.h \
+ E:/platform/RISC-V_Platform/include/riscv/types.h \
+ E:/platform/RISC-V_Platform/include/riscv/simulator.h \
+ E:/platform/RISC-V_Platform/include/riscv/csr.h \
+ E:/platform/RISC-V_Platform/include/riscv/memory.h \
+ E:/platform/RISC-V_Platform/include/riscv/pipeline.h \
+ E:/platform/RISC-V_Platform/include/riscv/decoder.h \
+ E:/platform/RISC-V_Platform/include/riscv/register_file.h \
  F:/msys64/ucrt64/include/c++/15.1.0/array

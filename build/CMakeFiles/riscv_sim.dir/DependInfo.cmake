@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "E:/RISC-V_Platform/src/main.cpp" "CMakeFiles/riscv_sim.dir/src/main.cpp.obj" "gcc" "CMakeFiles/riscv_sim.dir/src/main.cpp.obj.d"
+  "E:/platform/RISC-V_Platform/src/main.cpp" "CMakeFiles/riscv_sim.dir/src/main.cpp.obj" "gcc" "CMakeFiles/riscv_sim.dir/src/main.cpp.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.
