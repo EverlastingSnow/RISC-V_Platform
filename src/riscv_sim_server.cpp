@@ -139,6 +139,7 @@ void output_signals(riscv::RISCVSimulator& sim) {
 
     std::cout << ",\"execute\":{"
               << "\"pc\":\"0x" << std::hex << (id_ex.valid ? id_ex.instr.pc : 0) << std::dec << "\","
+              << "\"valid\":" << (id_ex.valid ? "true" : "false") << ","
               << "\"alu_result\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.alu_result : 0) << std::dec << "\","
               << "\"fu_type\":\"" << (id_ex.valid ? riscv::to_string(id_ex.instr.kind) : "NONE") << "\","
               << "\"branch_taken\":" << (ex_mem.valid && ex_mem.branch_taken ? "true" : "false") << ","
