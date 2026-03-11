@@ -7,7 +7,10 @@
 #include <csignal>
 #include <atomic>
 #include <memory>
+#include <map>
+#include <set>
 
+#include "riscv/types.h"
 #include "riscv/simulator.h"
 #include "riscv/elf_loader.h"
 #include "riscv/decoder.h"
@@ -15,6 +18,32 @@
 namespace {
 
 std::atomic<bool> g_running{true};
+
+struct DiffTestConfig {
+    bool enabled{false};
+    std::set<std::string> enabled_signals;
+    std::map<std::string, bool> user_signals;
+    std::string pending_signal;
+    bool waiting_for_input{false};
+    bool diff_detected{false};
+    std::string diff_message;
+    
+    struct Result {
+        bool valid{false};
+        std::uint64_t pc{0};
+        bool reg_write{false};
+        std::uint32_t waddr{0};
+        std::uint64_t wdata{0};
+        std::uint64_t alu_result{0};
+        bool branch_taken{false};
+        std::uint64_t branch_target{0};
+    };
+    
+    Result golden_result;
+    Result user_result;
+};
+
+DiffTestConfig g_difftest;
 
 void signal_handler(int) {
     g_running = false;
@@ -101,6 +130,53 @@ std::string escape_json(const std::string& s) {
         }
     }
     return result;
+}
+
+bool get_default_signal(const riscv::DecodedInstruction& instr, const std::string& signal_name) {
+    if (signal_name == "RegWrite") {
+        return instr.writes_rd();
+    } else if (signal_name == "ALUSrc") {
+        return instr.format == riscv::InstructionFormat::I || 
+               instr.format == riscv::InstructionFormat::S ||
+               instr.format == riscv::InstructionFormat::U;
+    } else if (signal_name == "MemRead") {
+        return instr.is_load();
+    } else if (signal_name == "MemWrite") {
+        return instr.is_store();
+    } else if (signal_name == "Branch") {
+        return instr.is_branch();
+    }
+    return false;
+}
+
+void output_need_signal_input(const std::string& signal_name, const std::string& expected_value) {
+    std::cout << "{\"type\":\"need_signal_input\",\"needInput\":{"
+              << "\"signalName\":\"" << signal_name << "\","
+              << "\"expectedValue\":\"" << expected_value << "\""
+              << "}}";
+    std::cout << std::endl;
+    std::cout.flush();
+}
+
+void output_diff_detected() {
+    std::cout << "{\"type\":\"diff_detected\",\"diffResult\":{"
+              << "\"detected\":true,"
+              << "\"goldenPC\":\"0x" << std::hex << g_difftest.golden_result.pc << std::dec << "\","
+              << "\"userPC\":\"0x" << std::hex << g_difftest.user_result.pc << std::dec << "\","
+              << "\"goldenResult\":{"
+              << "\"regWrite\":" << (g_difftest.golden_result.reg_write ? "true" : "false") << ","
+              << "\"waddr\":" << g_difftest.golden_result.waddr << ","
+              << "\"wdata\":\"0x" << std::hex << g_difftest.golden_result.wdata << std::dec << "\""
+              << "},"
+              << "\"userResult\":{"
+              << "\"regWrite\":" << (g_difftest.user_result.reg_write ? "true" : "false") << ","
+              << "\"waddr\":" << g_difftest.user_result.waddr << ","
+              << "\"wdata\":\"0x" << std::hex << g_difftest.user_result.wdata << std::dec << "\""
+              << "},"
+              << "\"message\":\"" << escape_json(g_difftest.diff_message) << "\""
+              << "}}";
+    std::cout << std::endl;
+    std::cout.flush();
 }
 
 void output_signals(riscv::RISCVSimulator& sim) {
@@ -232,6 +308,9 @@ int main() {
 
             sim = std::make_unique<riscv::RISCVSimulator>();
             sim->load_program(result.binary, result.load_offset);
+            g_difftest.diff_detected = false;
+            g_difftest.waiting_for_input = false;
+            g_difftest.user_signals.clear();
             std::cout << "{\"status\":\"ok\",\"message\":\"Loaded " << escape_json(filepath) << "\"}" << std::endl;
 
         } else if (cmd == "step") {
@@ -243,8 +322,29 @@ int main() {
                 std::cout << "{\"status\":\"error\",\"message\":\"Simulation halted\"}" << std::endl;
                 continue;
             }
-            sim->step();
-            output_signals(*sim);
+            if (g_difftest.enabled && !g_difftest.diff_detected && !g_difftest.waiting_for_input) {
+                const auto& if_id = sim->if_id();
+                if (if_id.valid) {
+                    auto instr = riscv::decode(if_id.inst, if_id.pc);
+                    for (const auto& signal : g_difftest.enabled_signals) {
+                        bool expected = get_default_signal(instr, signal);
+                        auto it = g_difftest.user_signals.find(signal);
+                        if (it == g_difftest.user_signals.end()) {
+                            g_difftest.waiting_for_input = true;
+                            g_difftest.pending_signal = signal;
+                            std::string expected_str = expected ? "1" : "0";
+                            output_need_signal_input(signal, expected_str);
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!g_difftest.waiting_for_input && !g_difftest.diff_detected) {
+                sim->step();
+            }
+            if (!g_difftest.waiting_for_input) {
+                output_signals(*sim);
+            }
 
         } else if (cmd == "run") {
             if (!sim) {
@@ -260,6 +360,9 @@ int main() {
             if (sim) {
                 sim->reset();
             }
+            g_difftest.diff_detected = false;
+            g_difftest.waiting_for_input = false;
+            g_difftest.user_signals.clear();
             std::cout << "{\"status\":\"ok\",\"message\":\"Reset\"}" << std::endl;
 
         } else if (cmd == "signals") {
@@ -275,6 +378,39 @@ int main() {
                 continue;
             }
             output_registers(*sim);
+
+        } else if (cmd == "enable_difftest") {
+            std::string signals_str;
+            std::getline(iss, signals_str);
+            std::istringstream sig_iss(signals_str);
+            std::string signal;
+            g_difftest.enabled_signals.clear();
+            while (sig_iss >> signal) {
+                if (!signal.empty()) {
+                    g_difftest.enabled_signals.insert(signal);
+                }
+            }
+            g_difftest.enabled = true;
+            g_difftest.user_signals.clear();
+            std::cout << "{\"status\":\"ok\",\"message\":\"Difftest enabled with signals: " << escape_json(signals_str) << "\"}" << std::endl;
+
+        } else if (cmd == "disable_difftest") {
+            g_difftest.enabled = false;
+            g_difftest.enabled_signals.clear();
+            g_difftest.user_signals.clear();
+            std::cout << "{\"status\":\"ok\",\"message\":\"Difftest disabled\"}" << std::endl;
+
+        } else if (cmd == "set_user_signal") {
+            std::string signal_name, value_str;
+            iss >> signal_name >> value_str;
+            bool value = (value_str == "true" || value_str == "1");
+            g_difftest.user_signals[signal_name] = value;
+            std::cout << "{\"status\":\"ok\",\"message\":\"User signal set: " << escape_json(signal_name) << "=" << (value ? "1" : "0") << "\"}" << std::endl;
+
+        } else if (cmd == "continue") {
+            g_difftest.diff_detected = false;
+            g_difftest.waiting_for_input = false;
+            std::cout << "{\"status\":\"ok\",\"message\":\"Continuing\"}" << std::endl;
 
         } else if (cmd == "quit") {
             break;

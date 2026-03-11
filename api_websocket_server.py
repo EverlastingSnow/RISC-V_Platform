@@ -32,7 +32,9 @@ class CppSimulator:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                bufsize=1
+                bufsize=1,
+                encoding='utf-8',
+                errors='replace'
             )
             return True
         except Exception as e:

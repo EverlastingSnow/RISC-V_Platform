@@ -379,9 +379,7 @@ void RISCVSimulator::stage_id() {
     next_id_ex_.instr = instr;
     next_id_ex_.rs1_value = uses_rs1(instr.kind) ? regs_.read(instr.rs1) : 0;
     next_id_ex_.rs2_value = uses_rs2(instr.kind) ? regs_.read(instr.rs2) : 0;
-    
-    if (instr.rd == 3) {
-    }
+
 }
 
 void RISCVSimulator::stage_ex() {
