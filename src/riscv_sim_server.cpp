@@ -21,12 +21,15 @@ std::atomic<bool> g_running{true};
 
 struct DiffTestConfig {
     bool enabled{false};
+    bool shadow_mode{false};
     std::set<std::string> enabled_signals;
     std::map<std::string, bool> user_signals;
     std::string pending_signal;
     bool waiting_for_input{false};
     bool diff_detected{false};
     std::string diff_message;
+    
+    std::unique_ptr<riscv::RISCVSimulator> shadow_sim;
     
     struct Result {
         bool valid{false};
@@ -44,6 +47,57 @@ struct DiffTestConfig {
 };
 
 DiffTestConfig g_difftest;
+
+class ShadowSimulator {
+public:
+    using u8 = std::uint8_t;
+    using u64 = std::uint64_t;
+    
+    ShadowSimulator() : sim_(std::make_unique<riscv::RISCVSimulator>()) {}
+    
+    void load_program(const std::vector<u8>& binary, u64 offset) {
+        sim_->load_program(binary, offset);
+    }
+    
+    void reset() {
+        sim_->reset();
+    }
+    
+    void step() {
+        sim_->step();
+    }
+    
+    bool halted() const {
+        return sim_->halted();
+    }
+    
+    const riscv::RegisterFile& registers() const {
+        return sim_->registers();
+    }
+    
+    const riscv::Memory& memory() const {
+        return sim_->memory();
+    }
+    
+    const auto& mem_wb() const {
+        return sim_->mem_wb();
+    }
+    
+    const auto& ex_mem() const {
+        return sim_->ex_mem();
+    }
+    
+    void apply_user_signals(const std::map<std::string, bool>& signals,
+                           const std::set<std::string>& enabled_signals,
+                           const riscv::DecodedInstruction& instr,
+                           riscv::u64 src1_value,
+                           riscv::u64 src2_value,
+                           riscv::u64 imm_value) {
+    }
+    
+private:
+    std::unique_ptr<riscv::RISCVSimulator> sim_;
+};
 
 void signal_handler(int) {
     g_running = false;
@@ -149,6 +203,58 @@ bool get_default_signal(const riscv::DecodedInstruction& instr, const std::strin
     return false;
 }
 
+bool get_user_signal(const std::string& signal_name, const std::map<std::string, bool>& user_signals) {
+    auto it = user_signals.find(signal_name);
+    if (it != user_signals.end()) {
+        return it->second;
+    }
+    return get_default_signal(riscv::DecodedInstruction{}, signal_name);
+}
+
+bool compare_ex_results(const DiffTestConfig::Result& golden, const DiffTestConfig::Result& user, std::string& message) {
+    if (golden.alu_result != user.alu_result) {
+        message = "EX阶段差异: ALU结果不匹配 (Golden: 0x" + 
+                  std::to_string(golden.alu_result) + 
+                  ", User: 0x" + std::to_string(user.alu_result) + ")";
+        return false;
+    }
+    if (golden.branch_taken != user.branch_taken) {
+        message = "EX阶段差异: 分支Taken不匹配 (Golden: " + 
+                  std::string(golden.branch_taken ? "1" : "0") + 
+                  ", User: " + std::string(user.branch_taken ? "1" : "0") + ")";
+        return false;
+    }
+    if (golden.branch_target != user.branch_target) {
+        message = "EX阶段差异: 分支目标不匹配 (Golden: 0x" + 
+                  std::to_string(golden.branch_target) + 
+                  ", User: 0x" + std::to_string(user.branch_target) + ")";
+        return false;
+    }
+    return true;
+}
+
+bool compare_wb_results(const DiffTestConfig::Result& golden, const DiffTestConfig::Result& user, std::string& message) {
+    if (golden.reg_write != user.reg_write) {
+        message = "WB阶段差异: 寄存器写使能不匹配 (Golden: " + 
+                  std::string(golden.reg_write ? "1" : "0") + 
+                  ", User: " + std::string(user.reg_write ? "1" : "0") + ")";
+        return false;
+    }
+    if (golden.waddr != user.waddr) {
+        message = "WB阶段差异: 写地址不匹配 (Golden: x" + 
+                  std::to_string(golden.waddr) + 
+                  ", User: x" + std::to_string(user.waddr) + ")";
+        return false;
+    }
+    if (golden.wdata != user.wdata) {
+        message = "WB阶段差异: 写数据不匹配 (Golden: 0x" + 
+                  std::to_string(golden.wdata) + 
+                  ", User: 0x" + std::to_string(user.wdata) + ")";
+        return false;
+    }
+    return true;
+}
+
 void output_need_signal_input(const std::string& signal_name, const std::string& expected_value) {
     std::cout << "{\"type\":\"need_signal_input\",\"needInput\":{"
               << "\"signalName\":\"" << signal_name << "\","
@@ -161,6 +267,7 @@ void output_need_signal_input(const std::string& signal_name, const std::string&
 void output_diff_detected() {
     std::cout << "{\"type\":\"diff_detected\",\"diffResult\":{"
               << "\"detected\":true,"
+              << "\"stage\":\"" << (g_difftest.diff_message.find("EX") != std::string::npos ? "EX" : "WB") << "\","
               << "\"goldenPC\":\"0x" << std::hex << g_difftest.golden_result.pc << std::dec << "\","
               << "\"userPC\":\"0x" << std::hex << g_difftest.user_result.pc << std::dec << "\","
               << "\"goldenResult\":{"
@@ -172,6 +279,28 @@ void output_diff_detected() {
               << "\"regWrite\":" << (g_difftest.user_result.reg_write ? "true" : "false") << ","
               << "\"waddr\":" << g_difftest.user_result.waddr << ","
               << "\"wdata\":\"0x" << std::hex << g_difftest.user_result.wdata << std::dec << "\""
+              << "},"
+              << "\"message\":\"" << escape_json(g_difftest.diff_message) << "\""
+              << "}}";
+    std::cout << std::endl;
+    std::cout.flush();
+}
+
+void output_ex_diff_detected() {
+    std::cout << "{\"type\":\"diff_detected\",\"diffResult\":{"
+              << "\"detected\":true,"
+              << "\"stage\":\"EX\","
+              << "\"goldenPC\":\"0x" << std::hex << g_difftest.golden_result.pc << std::dec << "\","
+              << "\"userPC\":\"0x" << std::hex << g_difftest.user_result.pc << std::dec << "\","
+              << "\"goldenResult\":{"
+              << "\"alu_result\":\"0x" << std::hex << g_difftest.golden_result.alu_result << std::dec << "\","
+              << "\"branch_taken\":" << (g_difftest.golden_result.branch_taken ? "true" : "false") << ","
+              << "\"branch_target\":\"0x" << std::hex << g_difftest.golden_result.branch_target << std::dec << "\""
+              << "},"
+              << "\"userResult\":{"
+              << "\"alu_result\":\"0x" << std::hex << g_difftest.user_result.alu_result << std::dec << "\","
+              << "\"branch_taken\":" << (g_difftest.user_result.branch_taken ? "true" : "false") << ","
+              << "\"branch_target\":\"0x" << std::hex << g_difftest.user_result.branch_target << std::dec << "\""
               << "},"
               << "\"message\":\"" << escape_json(g_difftest.diff_message) << "\""
               << "}}";
@@ -308,6 +437,12 @@ int main() {
 
             sim = std::make_unique<riscv::RISCVSimulator>();
             sim->load_program(result.binary, result.load_offset);
+            
+            if (g_difftest.shadow_mode) {
+                g_difftest.shadow_sim = std::make_unique<riscv::RISCVSimulator>();
+                g_difftest.shadow_sim->load_program(result.binary, result.load_offset);
+            }
+            
             g_difftest.diff_detected = false;
             g_difftest.waiting_for_input = false;
             g_difftest.user_signals.clear();
@@ -322,7 +457,61 @@ int main() {
                 std::cout << "{\"status\":\"error\",\"message\":\"Simulation halted\"}" << std::endl;
                 continue;
             }
-            if (g_difftest.enabled && !g_difftest.diff_detected && !g_difftest.waiting_for_input) {
+            
+            if (g_difftest.enabled && g_difftest.shadow_mode && g_difftest.shadow_sim) {
+                if (!g_difftest.diff_detected && !g_difftest.waiting_for_input) {
+                    sim->step();
+                    g_difftest.shadow_sim->step();
+                    
+                    const auto& ex_mem = sim->ex_mem();
+                    const auto& shadow_ex_mem = g_difftest.shadow_sim->ex_mem();
+                    
+                    if (ex_mem.valid && shadow_ex_mem.valid) {
+                        g_difftest.golden_result.valid = true;
+                        g_difftest.golden_result.pc = ex_mem.instr.pc;
+                        g_difftest.golden_result.alu_result = ex_mem.alu_result;
+                        g_difftest.golden_result.branch_taken = ex_mem.branch_taken;
+                        g_difftest.golden_result.branch_target = ex_mem.branch_target;
+                        
+                        g_difftest.user_result.valid = true;
+                        g_difftest.user_result.pc = shadow_ex_mem.instr.pc;
+                        g_difftest.user_result.alu_result = shadow_ex_mem.alu_result;
+                        g_difftest.user_result.branch_taken = shadow_ex_mem.branch_taken;
+                        g_difftest.user_result.branch_target = shadow_ex_mem.branch_target;
+                        
+                        if (!compare_ex_results(g_difftest.golden_result, g_difftest.user_result, g_difftest.diff_message)) {
+                            g_difftest.diff_detected = true;
+                            output_ex_diff_detected();
+                            continue;
+                        }
+                    }
+                    
+                    const auto& mem_wb = sim->mem_wb();
+                    const auto& shadow_mem_wb = g_difftest.shadow_sim->mem_wb();
+                    
+                    if (mem_wb.valid && shadow_mem_wb.valid) {
+                        g_difftest.golden_result.valid = true;
+                        g_difftest.golden_result.pc = mem_wb.instr.pc;
+                        g_difftest.golden_result.reg_write = mem_wb.instr.writes_rd();
+                        g_difftest.golden_result.waddr = mem_wb.instr.rd;
+                        g_difftest.golden_result.wdata = mem_wb.wb_value;
+                        
+                        g_difftest.user_result.valid = true;
+                        g_difftest.user_result.pc = shadow_mem_wb.instr.pc;
+                        g_difftest.user_result.reg_write = shadow_mem_wb.instr.writes_rd();
+                        g_difftest.user_result.waddr = shadow_mem_wb.instr.rd;
+                        g_difftest.user_result.wdata = shadow_mem_wb.wb_value;
+                        
+                        if (!compare_wb_results(g_difftest.golden_result, g_difftest.user_result, g_difftest.diff_message)) {
+                            g_difftest.diff_detected = true;
+                            output_diff_detected();
+                            continue;
+                        }
+                    }
+                }
+                output_signals(*sim);
+            }
+            else if (g_difftest.enabled && !g_difftest.diff_detected && !g_difftest.waiting_for_input) {
                 const auto& if_id = sim->if_id();
                 if (if_id.valid) {
                     auto instr = riscv::decode(if_id.inst, if_id.pc);
@@ -385,17 +574,29 @@ int main() {
             std::istringstream sig_iss(signals_str);
             std::string signal;
             g_difftest.enabled_signals.clear();
+            
             while (sig_iss >> signal) {
-                if (!signal.empty()) {
+                if (signal == "--shadow") {
+                    g_difftest.shadow_mode = true;
+                } else if (!signal.empty()) {
                     g_difftest.enabled_signals.insert(signal);
                 }
             }
-            g_difftest.enabled = true;
+            
+            if (g_difftest.shadow_mode && !g_difftest.enabled_signals.empty()) {
+                g_difftest.enabled = true;
+            } else if (!g_difftest.enabled_signals.empty()) {
+                g_difftest.enabled = true;
+                g_difftest.shadow_mode = false;
+            }
             g_difftest.user_signals.clear();
-            std::cout << "{\"status\":\"ok\",\"message\":\"Difftest enabled with signals: " << escape_json(signals_str) << "\"}" << std::endl;
+            std::string mode_str = g_difftest.shadow_mode ? "shadow mode" : "user input mode";
+            std::cout << "{\"status\":\"ok\",\"message\":\"Difftest enabled (" << mode_str << ") with signals: " << escape_json(signals_str) << "\"}" << std::endl;
 
         } else if (cmd == "disable_difftest") {
             g_difftest.enabled = false;
+            g_difftest.shadow_mode = false;
+            g_difftest.shadow_sim.reset();
             g_difftest.enabled_signals.clear();
             g_difftest.user_signals.clear();
             std::cout << "{\"status\":\"ok\",\"message\":\"Difftest disabled\"}" << std::endl;
