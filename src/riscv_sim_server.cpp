@@ -255,10 +255,11 @@ bool compare_wb_results(const DiffTestConfig::Result& golden, const DiffTestConf
     return true;
 }
 
-void output_need_signal_input(const std::string& signal_name, const std::string& expected_value) {
+void output_need_signal_input(const std::string& signal_name, const std::string& expected_value, const std::string& instruction_name) {
     std::cout << "{\"type\":\"need_signal_input\",\"needInput\":{"
               << "\"signalName\":\"" << signal_name << "\","
-              << "\"expectedValue\":\"" << expected_value << "\""
+              << "\"expectedValue\":\"" << expected_value << "\","
+              << "\"instruction\":\"" << instruction_name << "\""
               << "}}";
     std::cout << std::endl;
     std::cout.flush();
@@ -458,6 +459,11 @@ int main() {
                 continue;
             }
             
+            std::cerr << "[DEBUG step] difftest enabled: " << g_difftest.enabled 
+                      << ", shadow_mode: " << g_difftest.shadow_mode 
+                      << ", waiting: " << g_difftest.waiting_for_input
+                      << ", diff: " << g_difftest.diff_detected << std::endl;
+            
             if (g_difftest.enabled && g_difftest.shadow_mode && g_difftest.shadow_sim) {
                 if (!g_difftest.diff_detected && !g_difftest.waiting_for_input) {
                     sim->step();
@@ -522,7 +528,8 @@ int main() {
                             g_difftest.waiting_for_input = true;
                             g_difftest.pending_signal = signal;
                             std::string expected_str = expected ? "1" : "0";
-                            output_need_signal_input(signal, expected_str);
+                            std::string instr_name = riscv::to_string(instr.kind);
+                            output_need_signal_input(signal, expected_str, instr_name);
                             break;
                         }
                     }
@@ -569,8 +576,10 @@ int main() {
             output_registers(*sim);
 
         } else if (cmd == "enable_difftest") {
+            std::cerr << "[DEBUG] enable_difftest command received" << std::endl;
             std::string signals_str;
             std::getline(iss, signals_str);
+            std::cerr << "[DEBUG] signals_str: " << signals_str << std::endl;
             std::istringstream sig_iss(signals_str);
             std::string signal;
             g_difftest.enabled_signals.clear();
@@ -591,7 +600,9 @@ int main() {
             }
             g_difftest.user_signals.clear();
             std::string mode_str = g_difftest.shadow_mode ? "shadow mode" : "user input mode";
+            std::cerr << "[DEBUG] difftest enabled: " << g_difftest.enabled << ", signals: " << g_difftest.enabled_signals.size() << std::endl;
             std::cout << "{\"status\":\"ok\",\"message\":\"Difftest enabled (" << mode_str << ") with signals: " << escape_json(signals_str) << "\"}" << std::endl;
+            std::cout.flush();
 
         } else if (cmd == "disable_difftest") {
             g_difftest.enabled = false;
@@ -606,6 +617,7 @@ int main() {
             iss >> signal_name >> value_str;
             bool value = (value_str == "true" || value_str == "1");
             g_difftest.user_signals[signal_name] = value;
+            g_difftest.waiting_for_input = false;
             std::cout << "{\"status\":\"ok\",\"message\":\"User signal set: " << escape_json(signal_name) << "=" << (value ? "1" : "0") << "\"}" << std::endl;
 
         } else if (cmd == "continue") {

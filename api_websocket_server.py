@@ -4,6 +4,7 @@ import json
 import subprocess
 import os
 import signal
+import time
 from typing import Optional, Dict, Any
 
 PORT = 8081
@@ -30,11 +31,9 @@ class CppSimulator:
                 [self.exe_path],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 text=True,
-                bufsize=1,
-                encoding='utf-8',
-                errors='replace'
+                bufsize=1
             )
             return True
         except Exception as e:
@@ -46,11 +45,22 @@ class CppSimulator:
             return None
 
         try:
+            print(f"[DEBUG] C++ stdin: sending '{cmd}'")
             self.process.stdin.write(cmd + "\n")
             self.process.stdin.flush()
-            return self.read_response()
+            
+            for _ in range(20):
+                line = self.process.stdout.readline()
+                if not line:
+                    time.sleep(0.05)
+                    continue
+                stripped = line.strip()
+                print(f"[DEBUG] C++ stdout: {stripped[:100] if stripped else 'None'}")
+                if stripped.startswith('{'):
+                    return stripped
+            return None
         except Exception as e:
-            print(f"Error sending command: {e}")
+            print(f"[DEBUG] Exception: {e}")
             return None
 
     def read_response(self) -> Optional[str]:
@@ -157,22 +167,37 @@ class WebSocketServer:
                         if not self.sim:
                             response = {'status': 'error', 'message': 'Simulator not initialized'}
                         else:
+                            print(f"[DEBUG] Sending step command to simulator...")
                             result = self.sim.send_command("step")
+                            print(f"[DEBUG] Raw result from simulator: {result}")
                             if result:
-                                try:
-                                    data = json.loads(result)
-                                    if data.get('type') == 'need_signal_input':
-                                        await websocket.send(json.dumps(data))
-                                        return
-                                    elif data.get('type') == 'diff_detected':
-                                        await websocket.send(json.dumps(data))
-                                        return
-                                    if 'cycle' in data:
-                                        response = {'status': 'ok', 'signals': data}
-                                    else:
-                                        response = {'status': 'ok', 'data': data}
-                                except json.JSONDecodeError as e:
-                                    print(f"JSON decode error: {e}, result: {result}")
+                                result = result.strip()
+                                while result and not result.startswith('{'):
+                                    newline_idx = result.find('\n')
+                                    if newline_idx == -1:
+                                        break
+                                    result = result[newline_idx+1:].strip()
+                                
+                                if result.startswith('{'):
+                                    try:
+                                        data = json.loads(result)
+                                        print(f"[DEBUG] Parsed data: {data}")
+                                        if data.get('type') == 'need_signal_input':
+                                            print(f"[DEBUG] Received need_signal_input!")
+                                            await websocket.send(json.dumps(data))
+                                            continue
+                                        elif data.get('type') == 'diff_detected':
+                                            await websocket.send(json.dumps(data))
+                                            continue
+                                        if 'cycle' in data:
+                                            response = {'status': 'ok', 'signals': data}
+                                        else:
+                                            response = {'status': 'ok', 'data': data}
+                                    except json.JSONDecodeError as e:
+                                        print(f"JSON decode error: {e}, result: {result}")
+                                        response = {'status': 'ok'}
+                                else:
+                                    print(f"[DEBUG] No valid JSON found: {result}")
                                     response = {'status': 'ok'}
                             else:
                                 response = {'status': 'error', 'message': 'Failed to step'}
@@ -184,11 +209,14 @@ class WebSocketServer:
                         await websocket.send(json.dumps(response))
 
                         while self.running and self.sim:
+                            print(f"[DEBUG] run: sending step...")
                             result = self.sim.send_command("step")
+                            print(f"[DEBUG] run: received: {result}")
                             if result:
                                 try:
                                     data = json.loads(result)
                                     if data.get('type') == 'need_signal_input':
+                                        print(f"[DEBUG] run: Received need_signal_input!")
                                         self.running = False
                                         await websocket.send(json.dumps(data))
                                         break
@@ -249,21 +277,30 @@ class WebSocketServer:
                         await websocket.send(json.dumps(response))
 
                     elif command == 'enable_difftest':
+                        print(f"[DEBUG] enable_difftest command received: {data}")
                         signals_str = data.get('signals', '')
                         shadow_mode = data.get('shadowMode', False)
                         cmd = 'enable_difftest'
                         if shadow_mode:
                             cmd += ' --shadow'
                         cmd += ' ' + signals_str
-                        result = self.send_command(cmd)
+                        print(f"[DEBUG] Sending to C++: '{cmd}'")
+                        
+                        result = self.sim.send_command(cmd)
+                        print(f"[DEBUG] enable_difftest result: {result}")
+                        
                         if result:
-                            response = {'status': 'ok', 'message': f'Difftest enabled: {cmd}'}
+                            try:
+                                resp_data = json.loads(result)
+                                response = {'status': 'ok', 'message': resp_data.get('message', 'Difftest enabled')}
+                            except:
+                                response = {'status': 'ok', 'message': f'Difftest enabled: {cmd}'}
                         else:
                             response = {'status': 'error', 'message': 'Failed to enable difftest'}
                         await websocket.send(json.dumps(response))
 
                     elif command == 'disable_difftest':
-                        result = self.send_command('disable_difftest')
+                        result = self.sim.send_command('disable_difftest')
                         if result:
                             response = {'status': 'ok', 'message': 'Difftest disabled'}
                         else:
@@ -274,7 +311,7 @@ class WebSocketServer:
                         signal_name = data.get('signalName', '')
                         value = data.get('value', False)
                         cmd = f'set_user_signal {signal_name} {"true" if value else "false"}'
-                        result = self.send_command(cmd)
+                        result = self.sim.send_command(cmd)
                         if result:
                             response = {'status': 'ok', 'message': f'Signal {signal_name} set to {value}'}
                         else:
@@ -282,7 +319,7 @@ class WebSocketServer:
                         await websocket.send(json.dumps(response))
 
                     elif command == 'continue':
-                        result = self.send_command('continue')
+                        result = self.sim.send_command('continue')
                         if result:
                             response = {'status': 'ok', 'message': 'Continuing'}
                         else:
