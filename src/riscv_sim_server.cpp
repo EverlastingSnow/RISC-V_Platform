@@ -517,28 +517,39 @@ int main() {
                 }
                 output_signals(*sim);
             }
-            else if (g_difftest.enabled && !g_difftest.diff_detected && !g_difftest.waiting_for_input) {
-                const auto& if_id = sim->if_id();
-                if (if_id.valid) {
-                    auto instr = riscv::decode(if_id.inst, if_id.pc);
-                    for (const auto& signal : g_difftest.enabled_signals) {
-                        bool expected = get_default_signal(instr, signal);
-                        auto it = g_difftest.user_signals.find(signal);
-                        if (it == g_difftest.user_signals.end()) {
+            else if (g_difftest.enabled && !g_difftest.diff_detected) {
+                if (g_difftest.waiting_for_input) {
+                    auto it = g_difftest.user_signals.find(g_difftest.pending_signal);
+                    if (it != g_difftest.user_signals.end()) {
+                        g_difftest.waiting_for_input = false;
+                        sim->step();
+                        output_signals(*sim);
+                    } else {
+                        output_signals(*sim);
+                    }
+                } else {
+                    const auto& if_id = sim->if_id();
+                    if (if_id.valid) {
+                        auto instr = riscv::decode(if_id.inst, if_id.pc);
+                        for (const auto& signal : g_difftest.enabled_signals) {
                             g_difftest.waiting_for_input = true;
                             g_difftest.pending_signal = signal;
+                            bool expected = get_default_signal(instr, signal);
                             std::string expected_str = expected ? "1" : "0";
                             std::string instr_name = riscv::to_string(instr.kind);
                             output_need_signal_input(signal, expected_str, instr_name);
                             break;
                         }
                     }
+                    
+                    if (!g_difftest.waiting_for_input) {
+                        sim->step();
+                        output_signals(*sim);
+                    }
                 }
             }
-            if (!g_difftest.waiting_for_input && !g_difftest.diff_detected) {
+            else {
                 sim->step();
-            }
-            if (!g_difftest.waiting_for_input) {
                 output_signals(*sim);
             }
 
@@ -617,8 +628,11 @@ int main() {
             iss >> signal_name >> value_str;
             bool value = (value_str == "true" || value_str == "1");
             g_difftest.user_signals[signal_name] = value;
-            g_difftest.waiting_for_input = false;
             std::cout << "{\"status\":\"ok\",\"message\":\"User signal set: " << escape_json(signal_name) << "=" << (value ? "1" : "0") << "\"}" << std::endl;
+
+        } else if (cmd == "skip_signal_input") {
+            g_difftest.waiting_for_input = false;
+            std::cout << "{\"status\":\"ok\",\"message\":\"Signal input skipped\"}" << std::endl;
 
         } else if (cmd == "continue") {
             g_difftest.diff_detected = false;
