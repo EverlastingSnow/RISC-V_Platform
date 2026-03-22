@@ -31,9 +31,7 @@ class CppSimulator:
                 [self.exe_path],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1
+                stderr=subprocess.STDOUT
             )
             return True
         except Exception as e:
@@ -46,18 +44,42 @@ class CppSimulator:
 
         try:
             print(f"[DEBUG] C++ stdin: sending '{cmd}'")
-            self.process.stdin.write(cmd + "\n")
-            self.process.stdin.flush()
-            
-            for _ in range(20):
-                line = self.process.stdout.readline()
+            try:
+                self.process.stdin.write((cmd + "\n").encode('utf-8'))
+                self.process.stdin.flush()
+            except (OSError, IOError) as e:
+                print(f"[DEBUG] Write error: {e}, attempting to reconnect...")
+                return None
+
+            buffer = ""
+            json_line_found = False
+            for _ in range(100):
+                try:
+                    line = self.process.stdout.readline()
+                except (OSError, IOError) as e:
+                    print(f"[DEBUG] Read error: {e}")
+                    break
                 if not line:
                     time.sleep(0.05)
                     continue
+                if isinstance(line, bytes):
+                    line = line.decode('utf-8', errors='replace')
                 stripped = line.strip()
-                print(f"[DEBUG] C++ stdout: {stripped[:100] if stripped else 'None'}")
-                if stripped.startswith('{'):
-                    return stripped
+                if stripped:
+                    print(f"[DEBUG] C++ stdout: {stripped[:200] if stripped else 'None'}")
+                    if stripped.startswith('[DEBUG'):
+                        buffer = ""
+                        json_line_found = False
+                        continue
+                    buffer += stripped
+                    if stripped.startswith('{') and not json_line_found:
+                        json_line_found = True
+                    if json_line_found:
+                        brace_count = buffer.count('{') - buffer.count('}')
+                        if brace_count == 0 and buffer.endswith('}'):
+                            return buffer
+            if buffer.startswith('{'):
+                return buffer
             return None
         except Exception as e:
             print(f"[DEBUG] Exception: {e}")
@@ -70,6 +92,8 @@ class CppSimulator:
         try:
             line = self.process.stdout.readline()
             if line:
+                if isinstance(line, bytes):
+                    line = line.decode('utf-8', errors='replace')
                 return line.strip()
         except Exception as e:
             print(f"Error reading response: {e}")
@@ -137,12 +161,15 @@ class CppSimulator:
     def stop(self):
         if self.process:
             try:
-                self.process.stdin.write("quit\n")
+                self.process.stdin.write(b"quit\n")
                 self.process.stdin.flush()
                 self.process.terminate()
                 self.process.wait(timeout=2)
             except:
-                self.process.kill()
+                try:
+                    self.process.kill()
+                except:
+                    pass
             self.process = None
 
 
@@ -324,6 +351,78 @@ class WebSocketServer:
                             response = {'status': 'ok', 'message': 'Continuing'}
                         else:
                             response = {'status': 'error', 'message': 'Failed to continue'}
+                        await websocket.send(json.dumps(response))
+
+                    elif command == 'load_test':
+                        test_name = data.get('testName', '')
+                        cmd = f'load_test {test_name}'
+                        print(f"[DEBUG] Sending load_test command: '{cmd}'")
+                        result = self.sim.send_command(cmd)
+                        if result:
+                            try:
+                                resp_data = json.loads(result)
+                                if resp_data.get('status') == 'ok':
+                                    signals = self.sim.get_signals()
+                                    response = {'status': 'ok', 'message': resp_data.get('message', f'Loaded test {test_name}'), 'signals': signals}
+                                else:
+                                    response = resp_data
+                            except:
+                                response = {'status': 'ok', 'message': f'Loaded test {test_name}'}
+                        else:
+                            response = {'status': 'error', 'message': f'Failed to load test {test_name}'}
+                        await websocket.send(json.dumps(response))
+
+                    elif command == 'list_tests':
+                        cmd = 'list_tests'
+                        print(f"[DEBUG] Sending list_tests command")
+                        result = self.sim.send_command(cmd)
+                        if result:
+                            try:
+                                resp_data = json.loads(result)
+                                if resp_data.get('status') == 'ok':
+                                    response = resp_data
+                                else:
+                                    response = {'status': 'ok', 'tests': []}
+                            except:
+                                response = {'status': 'ok', 'tests': []}
+                        else:
+                            response = {'status': 'ok', 'tests': []}
+                        await websocket.send(json.dumps(response))
+
+                    elif command == 'list_elf_tests':
+                        cmd = 'list_elf_tests'
+                        print(f"[DEBUG] Sending list_elf_tests command")
+                        result = self.sim.send_command(cmd)
+                        if result:
+                            try:
+                                resp_data = json.loads(result)
+                                if resp_data.get('status') == 'ok':
+                                    response = resp_data
+                                else:
+                                    response = {'status': 'ok', 'elfTests': []}
+                            except:
+                                response = {'status': 'ok', 'elfTests': []}
+                        else:
+                            response = {'status': 'ok', 'elfTests': []}
+                        await websocket.send(json.dumps(response))
+
+                    elif command == 'load_elf_test':
+                        test_name = data.get('testName', '')
+                        cmd = f'load_elf_test {test_name}'
+                        print(f"[DEBUG] Sending load_elf_test command: '{cmd}'")
+                        result = self.sim.send_command(cmd)
+                        if result:
+                            try:
+                                resp_data = json.loads(result)
+                                if resp_data.get('status') == 'ok':
+                                    signals = self.sim.get_signals()
+                                    response = {'status': 'ok', 'message': resp_data.get('message', f'Loaded ELF test {test_name}'), 'signals': signals}
+                                else:
+                                    response = resp_data
+                            except:
+                                response = {'status': 'ok', 'message': f'Loaded ELF test {test_name}'}
+                        else:
+                            response = {'status': 'error', 'message': f'Failed to load ELF test {test_name}'}
                         await websocket.send(json.dumps(response))
 
                     elif command == 'get_registers':

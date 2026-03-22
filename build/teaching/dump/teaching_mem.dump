@@ -1,0 +1,76 @@
+
+E:\platform\RISC-V_Platform\build\teaching\teaching_mem.elf:     file format elf64-littleriscv
+
+
+Disassembly of section .text:
+
+00000000000100e8 <_start>:
+   100e8:	00c0006f          	j	100f4 <test_mem_access>
+   100ec:	00000013          	nop
+   100f0:	00000013          	nop
+
+00000000000100f4 <test_mem_access>:
+   100f4:	000380b7          	lui	ra,0x38
+   100f8:	ab70809b          	addiw	ra,ra,-1353 # 37ab7 <__global_pointer$+0x26117>
+   100fc:	00e09093          	slli	ra,ra,0xe
+   10100:	eef08093          	addi	ra,ra,-273
+   10104:	12345137          	lui	sp,0x12345
+   10108:	6781011b          	addiw	sp,sp,1656 # 12345678 <__global_pointer$+0x12333cd8>
+   1010c:	00001517          	auipc	a0,0x1
+   10110:	09450513          	addi	a0,a0,148 # 111a0 <__DATA_BEGIN__>
+   10114:	00153023          	sd	ra,0(a0)
+   10118:	00053583          	ld	a1,0(a0)
+   1011c:	06159863          	bne	a1,ra,1018c <fail>
+   10120:	00252423          	sw	sp,8(a0)
+   10124:	00852603          	lw	a2,8(a0)
+   10128:	0006061b          	sext.w	a2,a2
+   1012c:	06261063          	bne	a2,sp,1018c <fail>
+   10130:	00150823          	sb	ra,16(a0)
+   10134:	01054683          	lbu	a3,16(a0)
+   10138:	0ef00713          	li	a4,239
+   1013c:	04e69863          	bne	a3,a4,1018c <fail>
+   10140:	01050783          	lb	a5,16(a0)
+   10144:	0010071b          	addiw	a4,zero,1
+   10148:	02071713          	slli	a4,a4,0x20
+   1014c:	fef70713          	addi	a4,a4,-17
+   10150:	02e79e63          	bne	a5,a4,1018c <fail>
+   10154:	00251a23          	sh	sp,20(a0)
+   10158:	01455803          	lhu	a6,20(a0)
+   1015c:	00005737          	lui	a4,0x5
+   10160:	6787071b          	addiw	a4,a4,1656 # 5678 <_start-0xaa70>
+   10164:	02e81463          	bne	a6,a4,1018c <fail>
+   10168:	01451883          	lh	a7,20(a0)
+   1016c:	00100737          	lui	a4,0x100
+   10170:	ff57071b          	addiw	a4,a4,-11 # ffff5 <__global_pointer$+0xee655>
+   10174:	00c71713          	slli	a4,a4,0xc
+   10178:	67870713          	addi	a4,a4,1656
+   1017c:	00e89863          	bne	a7,a4,1018c <fail>
+   10180:	00000513          	li	a0,0
+   10184:	05d00893          	li	a7,93
+   10188:	00000073          	ecall
+
+000000000001018c <fail>:
+   1018c:	00100513          	li	a0,1
+   10190:	05d00893          	li	a7,93
+   10194:	00000073          	ecall
+   10198:	00000013          	nop
+
+Disassembly of section .data:
+
+00000000000111a0 <__DATA_BEGIN__>:
+	...
+
+Disassembly of section .riscv.attributes:
+
+0000000000000000 <.riscv.attributes>:
+   0:	1941                	.insn	2, 0x1941
+   2:	0000                	.insn	2, 0x0000
+   4:	7200                	.insn	2, 0x7200
+   6:	7369                	.insn	2, 0x7369
+   8:	01007663          	bgeu	zero,a6,14 <_start-0x100d4>
+   c:	0000000f          	fence	unknown,unknown
+  10:	7205                	.insn	2, 0x7205
+  12:	3676                	.insn	2, 0x3676
+  14:	6934                	.insn	2, 0x6934
+  16:	7032                	.insn	2, 0x7032
+  18:	0031                	.insn	2, 0x0031

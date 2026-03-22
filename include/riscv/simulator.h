@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <optional>
 
 #include "riscv/csr.h"
 #include "riscv/memory.h"
@@ -14,6 +15,26 @@ enum class HaltReason {
     Ecall,
     Ebreak,
     InvalidInstruction,
+};
+
+struct ExternalControlSignals {
+    std::optional<bool> reg_write;
+    std::optional<bool> alu_src;
+    std::optional<bool> mem_read;
+    std::optional<bool> mem_write;
+    std::optional<bool> branch;
+    
+    void clear() {
+        reg_write.reset();
+        alu_src.reset();
+        mem_read.reset();
+        mem_write.reset();
+        branch.reset();
+    }
+    
+    bool has_any() const {
+        return reg_write || alu_src || mem_read || mem_write || branch;
+    }
 };
 
 class RISCVSimulator {
@@ -53,6 +74,19 @@ public:
     [[nodiscard]] bool flush_decode() const { return flush_decode_; }
     [[nodiscard]] bool flush_execute() const { return flush_execute_; }
     [[nodiscard]] u64 next_pc() const { return next_pc_; }
+    
+    // External control signals for difftest
+    ExternalControlSignals external_signals;
+    
+    // WB result for comparison
+    struct WBResult {
+        bool valid{false};
+        u64 pc{0};
+        bool wb_en{false};
+        u32 wb_raddr{0};
+        u64 wb_rdata{0};
+    };
+    WBResult last_wb_result;
 
 private:
     void stage_if();

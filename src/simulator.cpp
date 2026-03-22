@@ -1083,10 +1083,27 @@ void RISCVSimulator::stage_wb() {
         
         return;
     }
-    if (mem_wb_.instr.writes_rd()) {
+    
+    // Record WB result before applying external signals
+    last_wb_result.valid = mem_wb_.valid;
+    last_wb_result.pc = mem_wb_.instr.pc;
+    last_wb_result.wb_en = mem_wb_.instr.writes_rd();
+    last_wb_result.wb_raddr = mem_wb_.instr.rd;
+    last_wb_result.wb_rdata = mem_wb_.wb_value;
+    
+    // Apply external control signals for RegWrite
+    bool should_write = mem_wb_.instr.writes_rd();
+    if (external_signals.reg_write.has_value()) {
+        should_write = external_signals.reg_write.value();
+    }
+    
+    if (should_write) {
         u64 val = mem_wb_.wb_value;
         regs_.write(mem_wb_.instr.rd, val);
     }
+    
+    // Update last_wb_result with actual write decision
+    last_wb_result.wb_en = should_write;
 
     if (mem_wb_.instr.kind == InstructionKind::ECALL) {
         halted_ = true;

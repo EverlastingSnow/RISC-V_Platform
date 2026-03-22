@@ -197,10 +197,14 @@ CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.obj: \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_multiset.h \
  E:/platform/RISC-V_Platform/include/riscv/types.h \
  E:/platform/RISC-V_Platform/include/riscv/simulator.h \
+ F:/msys64/ucrt64/include/c++/15.1.0/optional \
+ F:/msys64/ucrt64/include/c++/15.1.0/bits/enable_special_members.h \
  E:/platform/RISC-V_Platform/include/riscv/csr.h \
  E:/platform/RISC-V_Platform/include/riscv/memory.h \
  E:/platform/RISC-V_Platform/include/riscv/pipeline.h \
  E:/platform/RISC-V_Platform/include/riscv/decoder.h \
  E:/platform/RISC-V_Platform/include/riscv/register_file.h \
  F:/msys64/ucrt64/include/c++/15.1.0/array \
- E:/platform/RISC-V_Platform/include/riscv/elf_loader.h
+ E:/platform/RISC-V_Platform/include/riscv/elf_loader.h \
+ E:/platform/RISC-V_Platform/include/riscv/teaching_tests.h \
+ E:/platform/RISC-V_Platform/include/riscv/teaching_elf_config.h

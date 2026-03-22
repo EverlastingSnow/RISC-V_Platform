@@ -1,0 +1,51 @@
+
+E:\platform\RISC-V_Platform\build\teaching\teaching_alusrc.elf:     file format elf64-littleriscv
+
+
+Disassembly of section .text:
+
+0000000080000000 <_start>:
+    80000000:	00c0006f          	j	8000000c <test_alusrc>
+    80000004:	00000013          	nop
+    80000008:	00000013          	nop
+
+000000008000000c <test_alusrc>:
+    8000000c:	00a00093          	li	ra,10
+    80000010:	01400113          	li	sp,20
+    80000014:	00f08293          	addi	t0,ra,15
+    80000018:	00208333          	add	t1,ra,sp
+    8000001c:	00500393          	li	t2,5
+    80000020:	06438413          	addi	s0,t2,100
+    80000024:	002384b3          	add	s1,t2,sp
+    80000028:	01900513          	li	a0,25
+    8000002c:	02a29463          	bne	t0,a0,80000054 <fail>
+    80000030:	01e00513          	li	a0,30
+    80000034:	02a31063          	bne	t1,a0,80000054 <fail>
+    80000038:	06900513          	li	a0,105
+    8000003c:	00a41c63          	bne	s0,a0,80000054 <fail>
+    80000040:	01900513          	li	a0,25
+    80000044:	00a49863          	bne	s1,a0,80000054 <fail>
+    80000048:	00000513          	li	a0,0
+    8000004c:	05d00893          	li	a7,93
+    80000050:	00000073          	ecall
+
+0000000080000054 <fail>:
+    80000054:	00100513          	li	a0,1
+    80000058:	05d00893          	li	a7,93
+    8000005c:	00000073          	ecall
+    80000060:	00000013          	nop
+
+Disassembly of section .riscv.attributes:
+
+0000000000000000 <.riscv.attributes>:
+   0:	1941                	.insn	2, 0x1941
+   2:	0000                	.insn	2, 0x0000
+   4:	7200                	.insn	2, 0x7200
+   6:	7369                	.insn	2, 0x7369
+   8:	01007663          	bgeu	zero,a6,14 <_start-0x7fffffec>
+   c:	0000000f          	fence	unknown,unknown
+  10:	7205                	.insn	2, 0x7205
+  12:	3676                	.insn	2, 0x3676
+  14:	6934                	.insn	2, 0x6934
+  16:	7032                	.insn	2, 0x7032
+  18:	0031                	.insn	2, 0x0031

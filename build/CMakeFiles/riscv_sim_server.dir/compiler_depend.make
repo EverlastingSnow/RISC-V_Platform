@@ -201,6 +201,8 @@ CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.obj: E:/platform/RISC-V
   E:/platform/RISC-V_Platform/include/riscv/pipeline.h \
   E:/platform/RISC-V_Platform/include/riscv/register_file.h \
   E:/platform/RISC-V_Platform/include/riscv/simulator.h \
+  E:/platform/RISC-V_Platform/include/riscv/teaching_elf_config.h \
+  E:/platform/RISC-V_Platform/include/riscv/teaching_tests.h \
   E:/platform/RISC-V_Platform/include/riscv/types.h \
   F:/msys64/ucrt64/include/_mingw.h \
   F:/msys64/ucrt64/include/_mingw_mac.h \
@@ -231,6 +233,7 @@ CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.obj: E:/platform/RISC-V
   F:/msys64/ucrt64/include/c++/15.1.0/bits/cpp_type_traits.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/cxxabi_forced.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/cxxabi_init_exception.h \
+  F:/msys64/ucrt64/include/c++/15.1.0/bits/enable_special_members.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/erase_if.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/exception.h \
   F:/msys64/ucrt64/include/c++/15.1.0/bits/exception_defines.h \
@@ -335,6 +338,7 @@ CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.obj: E:/platform/RISC-V
   F:/msys64/ucrt64/include/c++/15.1.0/memory \
   F:/msys64/ucrt64/include/c++/15.1.0/new \
   F:/msys64/ucrt64/include/c++/15.1.0/numbers \
+  F:/msys64/ucrt64/include/c++/15.1.0/optional \
   F:/msys64/ucrt64/include/c++/15.1.0/ostream \
   F:/msys64/ucrt64/include/c++/15.1.0/pstl/execution_defs.h \
   F:/msys64/ucrt64/include/c++/15.1.0/pstl/glue_memory_defs.h \
@@ -419,6 +423,8 @@ F:/msys64/ucrt64/include/c++/15.1.0/string_view:
 F:/msys64/ucrt64/include/_mingw_secapi.h:
 
 E:/platform/RISC-V_Platform/include/riscv/types.h:
+
+E:/platform/RISC-V_Platform/include/riscv/teaching_tests.h:
 
 F:/msys64/ucrt64/include/_mingw_mac.h:
 
@@ -830,6 +836,8 @@ E:/platform/RISC-V_Platform/include/riscv/register_file.h:
 
 E:/platform/RISC-V_Platform/include/riscv/simulator.h:
 
+E:/platform/RISC-V_Platform/include/riscv/teaching_elf_config.h:
+
 F:/msys64/ucrt64/include/c++/15.1.0/array:
 
 F:/msys64/ucrt64/include/c++/15.1.0/atomic:
@@ -839,6 +847,8 @@ F:/msys64/ucrt64/include/c++/15.1.0/bits/atomic_base.h:
 F:/msys64/ucrt64/include/c++/15.1.0/bits/atomic_lockfree_defines.h:
 
 F:/msys64/ucrt64/include/c++/15.1.0/bits/atomic_wait.h:
+
+F:/msys64/ucrt64/include/c++/15.1.0/bits/enable_special_members.h:
 
 F:/msys64/ucrt64/include/c++/15.1.0/bits/node_handle.h:
 
@@ -863,6 +873,8 @@ F:/msys64/ucrt64/include/c++/15.1.0/bits/unique_ptr.h:
 F:/msys64/ucrt64/include/c++/15.1.0/map:
 
 F:/msys64/ucrt64/include/c++/15.1.0/memory:
+
+F:/msys64/ucrt64/include/c++/15.1.0/optional:
 
 F:/msys64/ucrt64/include/c++/15.1.0/pstl/glue_memory_defs.h:
 

@@ -14,10 +14,13 @@
 #include "riscv/simulator.h"
 #include "riscv/elf_loader.h"
 #include "riscv/decoder.h"
+#include "riscv/teaching_tests.h"
+#include "riscv/teaching_elf_config.h"
 
 namespace {
 
 std::atomic<bool> g_running{true};
+std::string g_current_elf_path;
 
 struct DiffTestConfig {
     bool enabled{false};
@@ -25,8 +28,10 @@ struct DiffTestConfig {
     std::set<std::string> enabled_signals;
     std::map<std::string, bool> user_signals;
     std::string pending_signal;
+    size_t current_signal_index{0};
     bool waiting_for_input{false};
     bool diff_detected{false};
+    bool signal_input_processed{false};
     std::string diff_message;
     
     std::unique_ptr<riscv::RISCVSimulator> shadow_sim;
@@ -203,6 +208,35 @@ bool get_default_signal(const riscv::DecodedInstruction& instr, const std::strin
     return false;
 }
 
+bool is_signal_relevant(const riscv::DecodedInstruction& instr, const std::string& signal_name) {
+    if (signal_name == "RegWrite") {
+        // Skip jal x0, offset (rd=0, writing to x0 is meaningless)
+        if (instr.writes_rd() && instr.rd == 0) {
+            return false;
+        }
+        // All other instructions need input (answer could be 0 or 1)
+        return true;
+    } else if (signal_name == "ALUSrc") {
+        // Skip branches and jumps (they don't use standard ALU path)
+        if (instr.is_branch() || instr.kind == riscv::InstructionKind::JAL || instr.kind == riscv::InstructionKind::JALR) {
+            return false;
+        }
+        // All ALU-using instructions need input
+        // R-type: ALUSrc=0, I/S/U-type: ALUSrc=1
+        return true;
+    } else if (signal_name == "MemRead") {
+        // All instructions need input (answer: 1 for load, 0 for others)
+        return true;
+    } else if (signal_name == "MemWrite") {
+        // All instructions need input (answer: 1 for store, 0 for others)
+        return true;
+    } else if (signal_name == "Branch") {
+        // All instructions need input (answer: 1 for branch, 0 for others)
+        return true;
+    }
+    return false;
+}
+
 bool get_user_signal(const std::string& signal_name, const std::map<std::string, bool>& user_signals) {
     auto it = user_signals.find(signal_name);
     if (it != user_signals.end()) {
@@ -259,6 +293,46 @@ void output_need_signal_input(const std::string& signal_name, const std::string&
     std::cout << "{\"type\":\"need_signal_input\",\"needInput\":{"
               << "\"signalName\":\"" << signal_name << "\","
               << "\"expectedValue\":\"" << expected_value << "\","
+              << "\"instruction\":\"" << instruction_name << "\""
+              << "}}";
+    std::cout << std::endl;
+    std::cout.flush();
+}
+
+void output_need_all_signals_input(const riscv::DecodedInstruction& instr, const std::string& instruction_name) {
+    std::vector<std::string> relevant_signals;
+    std::vector<std::string> auto_signals;
+    
+    for (const auto& signal : g_difftest.enabled_signals) {
+        if (is_signal_relevant(instr, signal)) {
+            relevant_signals.push_back(signal);
+        } else {
+            auto_signals.push_back(signal);
+            bool default_value = get_default_signal(instr, signal);
+            g_difftest.user_signals[signal] = default_value;
+        }
+    }
+    
+    if (relevant_signals.empty()) {
+        g_difftest.waiting_for_input = false;
+        return;
+    }
+    
+    std::cout << "{\"type\":\"need_signal_input\",\"needInput\":{"
+              << "\"signals\":[";
+    
+    bool first = true;
+    for (const auto& signal : relevant_signals) {
+        if (!first) {
+            std::cout << ",";
+        }
+        bool expected = get_default_signal(instr, signal);
+        std::string expected_str = expected ? "1" : "0";
+        std::cout << "{\"name\":\"" << signal << "\",\"expectedValue\":\"" << expected_str << "\"}";
+        first = false;
+    }
+    
+    std::cout << "],"
               << "\"instruction\":\"" << instruction_name << "\""
               << "}}";
     std::cout << std::endl;
@@ -438,6 +512,7 @@ int main() {
 
             sim = std::make_unique<riscv::RISCVSimulator>();
             sim->load_program(result.binary, result.load_offset);
+            g_current_elf_path = filepath;
             
             if (g_difftest.shadow_mode) {
                 g_difftest.shadow_sim = std::make_unique<riscv::RISCVSimulator>();
@@ -448,6 +523,120 @@ int main() {
             g_difftest.waiting_for_input = false;
             g_difftest.user_signals.clear();
             std::cout << "{\"status\":\"ok\",\"message\":\"Loaded " << escape_json(filepath) << "\"}" << std::endl;
+
+        } else if (cmd == "load_test") {
+            std::string test_name;
+            iss >> test_name;
+
+            const auto* test = riscv::TeachingTests::get_test(test_name);
+            if (!test) {
+                std::cout << "{\"status\":\"error\",\"message\":\"Teaching test not found: " << escape_json(test_name) << "\"}" << std::endl;
+                continue;
+            }
+
+            std::vector<riscv::u8> binary;
+            binary.reserve(test->instructions.size() * 4);
+            for (auto word : test->instructions) {
+                binary.push_back(static_cast<riscv::u8>(word & 0xFF));
+                binary.push_back(static_cast<riscv::u8>((word >> 8) & 0xFF));
+                binary.push_back(static_cast<riscv::u8>((word >> 16) & 0xFF));
+                binary.push_back(static_cast<riscv::u8>((word >> 24) & 0xFF));
+            }
+
+            sim = std::make_unique<riscv::RISCVSimulator>();
+            sim->load_program(binary, 0x80000000ULL);
+
+            if (g_difftest.shadow_mode) {
+                g_difftest.shadow_sim = std::make_unique<riscv::RISCVSimulator>();
+                g_difftest.shadow_sim->load_program(binary, 0x80000000ULL);
+            }
+
+            g_difftest.diff_detected = false;
+            g_difftest.waiting_for_input = false;
+            g_difftest.user_signals.clear();
+            std::cout << "{\"status\":\"ok\",\"message\":\"Loaded teaching test: " << escape_json(test_name)
+                      << "\",\"testInfo\":{\"name\":\"" << escape_json(test->name)
+                      << "\",\"description\":\"" << escape_json(test->description)
+                      << "\",\"scenario\":\"" << escape_json(test->scenario) << "\"}}" << std::endl;
+
+        } else if (cmd == "list_tests") {
+            std::string scenario_filter;
+            std::getline(iss, scenario_filter);
+            while (!scenario_filter.empty() && scenario_filter[0] == ' ') scenario_filter.erase(scenario_filter.begin());
+
+            std::cout << "{\"status\":\"ok\",\"tests\":[";
+            bool first = true;
+            for (const auto& test : riscv::TeachingTests::get_all_tests()) {
+                if (!scenario_filter.empty() && test.scenario != scenario_filter && test.scenario != "all") {
+                    continue;
+                }
+                if (!first) std::cout << ",";
+                std::cout << "{\"name\":\"" << escape_json(test.name)
+                          << "\",\"description\":\"" << escape_json(test.description)
+                          << "\",\"scenario\":\"" << escape_json(test.scenario) << "\"}";
+                first = false;
+            }
+            std::cout << "]}";
+
+        } else if (cmd == "load_elf_test") {
+            std::string test_name;
+            iss >> test_name;
+
+            bool found = false;
+            for (const auto& test : riscv::TeachingElfConfig::get_all_elf_tests()) {
+                if (test.name == test_name) {
+                    auto result = riscv::load_elf(test.elf_path);
+                    if (!result.success) {
+                        std::cout << "{\"status\":\"error\",\"message\":\"Failed to load ELF: " << escape_json(result.error) << "\"}" << std::endl;
+                        break;
+                    }
+
+                    sim = std::make_unique<riscv::RISCVSimulator>();
+                    sim->load_program(result.binary, result.load_offset);
+                    g_current_elf_path = test.elf_path;
+
+                    if (g_difftest.shadow_mode) {
+                        g_difftest.shadow_sim = std::make_unique<riscv::RISCVSimulator>();
+                        g_difftest.shadow_sim->load_program(result.binary, result.load_offset);
+                    }
+
+                    g_difftest.diff_detected = false;
+                    g_difftest.waiting_for_input = false;
+                    g_difftest.user_signals.clear();
+
+                    std::cout << "{\"status\":\"ok\",\"message\":\"Loaded ELF test: " << escape_json(test_name)
+                              << "\",\"testInfo\":{\"name\":\"" << escape_json(test.display_name)
+                              << "\",\"description\":\"" << escape_json(test.description)
+                              << "\",\"scenario\":\"" << escape_json(test.scenario)
+                              << "\",\"elfPath\":\"" << escape_json(test.elf_path) << "\"}}" << std::endl;
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                std::cout << "{\"status\":\"error\",\"message\":\"ELF test not found: " << escape_json(test_name) << "\"}" << std::endl;
+            }
+
+        } else if (cmd == "list_elf_tests") {
+            std::string scenario_filter;
+            std::getline(iss, scenario_filter);
+            while (!scenario_filter.empty() && scenario_filter[0] == ' ') scenario_filter.erase(scenario_filter.begin());
+
+            std::cout << "{\"status\":\"ok\",\"elfTests\":[";
+            bool first = true;
+            for (const auto& test : riscv::TeachingElfConfig::get_all_elf_tests()) {
+                if (!scenario_filter.empty() && test.scenario != scenario_filter && test.scenario != "all") {
+                    continue;
+                }
+                if (!first) std::cout << ",";
+                std::cout << "{\"name\":\"" << escape_json(test.name)
+                          << "\",\"displayName\":\"" << escape_json(test.display_name)
+                          << "\",\"description\":\"" << escape_json(test.description)
+                          << "\",\"scenario\":\"" << escape_json(test.scenario) << "\"}";
+                first = false;
+            }
+            std::cout << "]}";
 
         } else if (cmd == "step") {
             if (!sim) {
@@ -465,7 +654,14 @@ int main() {
                       << ", diff: " << g_difftest.diff_detected << std::endl;
             
             if (g_difftest.enabled && g_difftest.shadow_mode && g_difftest.shadow_sim) {
-                if (!g_difftest.diff_detected && !g_difftest.waiting_for_input) {
+                // Clear diff_detected flag to allow continuing
+                if (g_difftest.diff_detected) {
+                    g_difftest.diff_detected = false;
+                    g_difftest.waiting_for_input = false;
+                    g_difftest.user_signals.clear();
+                }
+                
+                if (!g_difftest.waiting_for_input) {
                     sim->step();
                     g_difftest.shadow_sim->step();
                     
@@ -517,12 +713,109 @@ int main() {
                 }
                 output_signals(*sim);
             }
-            else if (g_difftest.enabled && !g_difftest.diff_detected) {
-                if (g_difftest.waiting_for_input) {
-                    auto it = g_difftest.user_signals.find(g_difftest.pending_signal);
-                    if (it != g_difftest.user_signals.end()) {
-                        g_difftest.waiting_for_input = false;
+            else if (g_difftest.enabled) {
+                // Clear diff_detected flag to allow continuing
+                if (g_difftest.diff_detected) {
+                    g_difftest.diff_detected = false;
+                    g_difftest.waiting_for_input = false;
+                    g_difftest.user_signals.clear();
+                }
+                
+                // Skip if signal input was already processed by set_user_signal
+                if (g_difftest.signal_input_processed) {
+                    g_difftest.signal_input_processed = false;
+                    output_signals(*sim);
+                } else if (g_difftest.waiting_for_input) {
+                    bool all_signals_received = true;
+                    for (const auto& signal : g_difftest.enabled_signals) {
+                        if (g_difftest.user_signals.find(signal) == g_difftest.user_signals.end()) {
+                            all_signals_received = false;
+                            break;
+                        }
+                    }
+                    
+                    if (all_signals_received) {
+                        std::cerr << "[DEBUG INPUT] All signals received, user_signals: ";
+                        for (const auto& [k, v] : g_difftest.user_signals) {
+                            std::cerr << k << "=" << v << " ";
+                        }
+                        std::cerr << std::endl;
+                        
+                        // Set external control signals on shadow_sim based on user input
+                        g_difftest.shadow_sim->external_signals.clear();
+                        for (const auto& [signal, value] : g_difftest.user_signals) {
+                            if (signal == "RegWrite") {
+                                g_difftest.shadow_sim->external_signals.reg_write = value;
+                                std::cerr << "[DEBUG INPUT] Setting RegWrite=" << value << std::endl;
+                            } else if (signal == "ALUSrc") {
+                                g_difftest.shadow_sim->external_signals.alu_src = value;
+                            } else if (signal == "MemRead") {
+                                g_difftest.shadow_sim->external_signals.mem_read = value;
+                            } else if (signal == "MemWrite") {
+                                g_difftest.shadow_sim->external_signals.mem_write = value;
+                            } else if (signal == "Branch") {
+                                g_difftest.shadow_sim->external_signals.branch = value;
+                            }
+                        }
+                        
+                        // Step both simulators
                         sim->step();
+                        g_difftest.shadow_sim->step();
+                        
+                        // Clear external signals after step to prevent pollution
+                        g_difftest.shadow_sim->external_signals.clear();
+                        
+                        // Compare WB results
+                        const auto& golden_wb = sim->last_wb_result;
+                        const auto& user_wb = g_difftest.shadow_sim->last_wb_result;
+                        
+                        std::cerr << "[DEBUG WB] golden: pc=0x" << std::hex << golden_wb.pc
+                                  << ", wb_en=" << golden_wb.wb_en
+                                  << ", rd=x" << std::dec << golden_wb.wb_raddr
+                                  << ", data=0x" << std::hex << golden_wb.wb_rdata << std::dec << std::endl;
+                        std::cerr << "[DEBUG WB] user: pc=0x" << std::hex << user_wb.pc
+                                  << ", wb_en=" << user_wb.wb_en
+                                  << ", rd=x" << std::dec << user_wb.wb_raddr
+                                  << ", data=0x" << std::hex << user_wb.wb_rdata << std::dec << std::endl;
+                        
+                        if (golden_wb.valid && user_wb.valid) {
+                            if (golden_wb.wb_en != user_wb.wb_en ||
+                                (golden_wb.wb_en && (golden_wb.wb_raddr != user_wb.wb_raddr ||
+                                                     golden_wb.wb_rdata != user_wb.wb_rdata))) {
+                                
+                                g_difftest.diff_detected = true;
+                                g_difftest.golden_result.pc = golden_wb.pc;
+                                g_difftest.golden_result.reg_write = golden_wb.wb_en;
+                                g_difftest.golden_result.waddr = golden_wb.wb_raddr;
+                                g_difftest.golden_result.wdata = golden_wb.wb_rdata;
+                                
+                                g_difftest.user_result.pc = user_wb.pc;
+                                g_difftest.user_result.reg_write = user_wb.wb_en;
+                                g_difftest.user_result.waddr = user_wb.wb_raddr;
+                                g_difftest.user_result.wdata = user_wb.wb_rdata;
+                                
+                                g_difftest.diff_message = "WB阶段差异: ";
+                                if (golden_wb.wb_en != user_wb.wb_en) {
+                                    g_difftest.diff_message += "写使能不匹配 (Golden: " + 
+                                        std::string(golden_wb.wb_en ? "1" : "0") + 
+                                        ", User: " + std::string(user_wb.wb_en ? "1" : "0") + ")";
+                                } else if (golden_wb.wb_raddr != user_wb.wb_raddr) {
+                                    g_difftest.diff_message += "写地址不匹配 (Golden: x" + 
+                                        std::to_string(golden_wb.wb_raddr) + 
+                                        ", User: x" + std::to_string(user_wb.wb_raddr) + ")";
+                                } else {
+                                    g_difftest.diff_message += "写数据不匹配 (Golden: 0x" + 
+                                        std::to_string(golden_wb.wb_rdata) + 
+                                        ", User: 0x" + std::to_string(user_wb.wb_rdata) + ")";
+                                }
+                                
+                                output_diff_detected();
+                                continue;
+                            }
+                        }
+                        
+                        g_difftest.waiting_for_input = false;
+                        g_difftest.user_signals.clear();
                         output_signals(*sim);
                     } else {
                         output_signals(*sim);
@@ -531,19 +824,20 @@ int main() {
                     const auto& if_id = sim->if_id();
                     if (if_id.valid) {
                         auto instr = riscv::decode(if_id.inst, if_id.pc);
-                        for (const auto& signal : g_difftest.enabled_signals) {
-                            g_difftest.waiting_for_input = true;
-                            g_difftest.pending_signal = signal;
-                            bool expected = get_default_signal(instr, signal);
-                            std::string expected_str = expected ? "1" : "0";
-                            std::string instr_name = riscv::to_string(instr.kind);
-                            output_need_signal_input(signal, expected_str, instr_name);
-                            break;
-                        }
+                        std::cerr << "[DEBUG INPUT] Requesting signal input for instr at PC 0x" << std::hex << if_id.pc
+                                  << ", instr=" << riscv::to_string(instr.kind) << std::dec << std::endl;
+                        g_difftest.waiting_for_input = true;
+                        g_difftest.user_signals.clear();
+                        std::string instr_name = riscv::to_string(instr.kind);
+                        output_need_all_signals_input(instr, instr_name);
                     }
                     
                     if (!g_difftest.waiting_for_input) {
+                        // No user input needed, step both simulators together
                         sim->step();
+                        if (g_difftest.shadow_sim) {
+                            g_difftest.shadow_sim->step();
+                        }
                         output_signals(*sim);
                     }
                 }
@@ -569,6 +863,7 @@ int main() {
             }
             g_difftest.diff_detected = false;
             g_difftest.waiting_for_input = false;
+            g_difftest.current_signal_index = 0;
             g_difftest.user_signals.clear();
             std::cout << "{\"status\":\"ok\",\"message\":\"Reset\"}" << std::endl;
 
@@ -594,24 +889,41 @@ int main() {
             std::istringstream sig_iss(signals_str);
             std::string signal;
             g_difftest.enabled_signals.clear();
-            
+            bool has_shadow_flag = false;
+
             while (sig_iss >> signal) {
                 if (signal == "--shadow") {
-                    g_difftest.shadow_mode = true;
+                    has_shadow_flag = true;
                 } else if (!signal.empty()) {
                     g_difftest.enabled_signals.insert(signal);
                 }
             }
-            
-            if (g_difftest.shadow_mode && !g_difftest.enabled_signals.empty()) {
-                g_difftest.enabled = true;
-            } else if (!g_difftest.enabled_signals.empty()) {
-                g_difftest.enabled = true;
-                g_difftest.shadow_mode = false;
+
+            g_difftest.shadow_mode = has_shadow_flag;
+            g_difftest.enabled = !g_difftest.enabled_signals.empty();
+
+            if (g_difftest.enabled) {
+                if (!sim) {
+                    std::cout << "{\"status\":\"error\",\"message\":\"No program loaded\"}" << std::endl;
+                } else {
+                    std::cerr << "[DEBUG] Creating shadow_sim, g_current_elf_path: " << g_current_elf_path << std::endl;
+                    g_difftest.shadow_sim = std::make_unique<riscv::RISCVSimulator>();
+                    auto load_result = riscv::load_elf(g_current_elf_path);
+                    std::cerr << "[DEBUG] load_elf success: " << load_result.success 
+                              << ", binary size: " << load_result.binary.size()
+                              << ", load_offset: " << load_result.load_offset << std::endl;
+                    if (load_result.success) {
+                        g_difftest.shadow_sim->load_program(load_result.binary, load_result.load_offset);
+                        std::cerr << "[DEBUG] shadow_sim PC after load: 0x" << std::hex << g_difftest.shadow_sim->pc() << std::dec << std::endl;
+                    } else {
+                        std::cerr << "[DEBUG] load_elf error: " << load_result.error << std::endl;
+                    }
+                }
             }
+
             g_difftest.user_signals.clear();
             std::string mode_str = g_difftest.shadow_mode ? "shadow mode" : "user input mode";
-            std::cerr << "[DEBUG] difftest enabled: " << g_difftest.enabled << ", signals: " << g_difftest.enabled_signals.size() << std::endl;
+            std::cerr << "[DEBUG] difftest enabled: " << g_difftest.enabled << ", shadow_mode: " << g_difftest.shadow_mode << ", signals: " << g_difftest.enabled_signals.size() << std::endl;
             std::cout << "{\"status\":\"ok\",\"message\":\"Difftest enabled (" << mode_str << ") with signals: " << escape_json(signals_str) << "\"}" << std::endl;
             std::cout.flush();
 
@@ -628,10 +940,95 @@ int main() {
             iss >> signal_name >> value_str;
             bool value = (value_str == "true" || value_str == "1");
             g_difftest.user_signals[signal_name] = value;
+            
+            // Check if we need to process immediately in user input mode
+            if (g_difftest.enabled && !g_difftest.shadow_mode && g_difftest.waiting_for_input) {
+                bool all_signals_received = true;
+                for (const auto& signal : g_difftest.enabled_signals) {
+                    if (g_difftest.user_signals.find(signal) == g_difftest.user_signals.end()) {
+                        all_signals_received = false;
+                        break;
+                    }
+                }
+                
+                if (all_signals_received && g_difftest.shadow_sim) {
+                    // Immediately process the step
+                    g_difftest.shadow_sim->external_signals.clear();
+                    for (const auto& [signal, sig_value] : g_difftest.user_signals) {
+                        if (signal == "RegWrite") {
+                            g_difftest.shadow_sim->external_signals.reg_write = sig_value;
+                        } else if (signal == "ALUSrc") {
+                            g_difftest.shadow_sim->external_signals.alu_src = sig_value;
+                        } else if (signal == "MemRead") {
+                            g_difftest.shadow_sim->external_signals.mem_read = sig_value;
+                        } else if (signal == "MemWrite") {
+                            g_difftest.shadow_sim->external_signals.mem_write = sig_value;
+                        } else if (signal == "Branch") {
+                            g_difftest.shadow_sim->external_signals.branch = sig_value;
+                        }
+                    }
+                    
+                    sim->step();
+                    g_difftest.shadow_sim->step();
+                    g_difftest.shadow_sim->external_signals.clear();
+                    
+                    const auto& golden_wb = sim->last_wb_result;
+                    const auto& user_wb = g_difftest.shadow_sim->last_wb_result;
+                    
+                    if (golden_wb.valid && user_wb.valid) {
+                        if (golden_wb.wb_en != user_wb.wb_en ||
+                            (golden_wb.wb_en && (golden_wb.wb_raddr != user_wb.wb_raddr ||
+                                                 golden_wb.wb_rdata != user_wb.wb_rdata))) {
+                            
+                            g_difftest.diff_detected = true;
+                            g_difftest.golden_result.pc = golden_wb.pc;
+                            g_difftest.golden_result.reg_write = golden_wb.wb_en;
+                            g_difftest.golden_result.waddr = golden_wb.wb_raddr;
+                            g_difftest.golden_result.wdata = golden_wb.wb_rdata;
+                            
+                            g_difftest.user_result.pc = user_wb.pc;
+                            g_difftest.user_result.reg_write = user_wb.wb_en;
+                            g_difftest.user_result.waddr = user_wb.wb_raddr;
+                            g_difftest.user_result.wdata = user_wb.wb_rdata;
+                            
+                            g_difftest.diff_message = "WB阶段差异: ";
+                            if (golden_wb.wb_en != user_wb.wb_en) {
+                                g_difftest.diff_message += "写使能不匹配 (Golden: " +
+                                    std::string(golden_wb.wb_en ? "1" : "0") +
+                                    ", User: " + std::string(user_wb.wb_en ? "1" : "0") + ")";
+                            } else if (golden_wb.wb_raddr != user_wb.wb_raddr) {
+                                g_difftest.diff_message += "写地址不匹配 (Golden: x" +
+                                    std::to_string(golden_wb.wb_raddr) +
+                                    ", User: x" + std::to_string(user_wb.wb_raddr) + ")";
+                            } else {
+                                g_difftest.diff_message += "写数据不匹配 (Golden: 0x" +
+                                    std::to_string(golden_wb.wb_rdata) +
+                                    ", User: 0x" + std::to_string(user_wb.wb_rdata) + ")";
+                            }
+
+                            output_diff_detected();
+                            g_difftest.user_signals.clear();
+                            g_difftest.signal_input_processed = true;
+                            std::cout.flush();
+                            continue;
+                        }
+                    }
+
+                    g_difftest.waiting_for_input = false;
+                    g_difftest.user_signals.clear();
+                    g_difftest.signal_input_processed = true;
+                    output_signals(*sim);
+                    std::cout.flush();
+                    continue;
+                }
+            }
+            
             std::cout << "{\"status\":\"ok\",\"message\":\"User signal set: " << escape_json(signal_name) << "=" << (value ? "1" : "0") << "\"}" << std::endl;
 
         } else if (cmd == "skip_signal_input") {
             g_difftest.waiting_for_input = false;
+            g_difftest.current_signal_index = 0;
+            g_difftest.user_signals.clear();
             std::cout << "{\"status\":\"ok\",\"message\":\"Signal input skipped\"}" << std::endl;
 
         } else if (cmd == "continue") {
@@ -641,6 +1038,9 @@ int main() {
 
         } else if (cmd == "quit") {
             break;
+
+        } else if (cmd == "ping") {
+            std::cout << "{\"status\":\"ok\",\"message\":\"pong\"}" << std::endl;
 
         } else {
             std::cout << "{\"status\":\"error\",\"message\":\"Unknown command: " << escape_json(cmd) << "\"}" << std::endl;

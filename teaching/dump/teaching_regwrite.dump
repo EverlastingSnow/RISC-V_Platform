@@ -1,0 +1,64 @@
+
+E:\platform\RISC-V_Platform\build\teaching\teaching_regwrite.elf:     file format elf64-littleriscv
+
+
+Disassembly of section .text:
+
+00000000000100e8 <_start>:
+   100e8:	00c0006f          	j	100f4 <test_regwrite>
+   100ec:	00000013          	nop
+   100f0:	00000013          	nop
+
+00000000000100f4 <test_regwrite>:
+   100f4:	00a00093          	li	ra,10
+   100f8:	01400113          	li	sp,20
+   100fc:	002081b3          	add	gp,ra,sp
+   10100:	00001297          	auipc	t0,0x1
+   10104:	06028293          	addi	t0,t0,96 # 11160 <__DATA_BEGIN__>
+   10108:	00328023          	sb	gp,0(t0)
+   1010c:	00208663          	beq	ra,sp,10118 <branch_taken>
+   10110:	00100313          	li	t1,1
+   10114:	0080006f          	j	1011c <continue_test>
+
+0000000000010118 <branch_taken>:
+   10118:	06300313          	li	t1,99
+
+000000000001011c <continue_test>:
+   1011c:	00000013          	nop
+   10120:	00a00393          	li	t2,10
+   10124:	02709463          	bne	ra,t2,1014c <fail>
+   10128:	01400393          	li	t2,20
+   1012c:	02711063          	bne	sp,t2,1014c <fail>
+   10130:	01e00393          	li	t2,30
+   10134:	00719c63          	bne	gp,t2,1014c <fail>
+   10138:	00100393          	li	t2,1
+   1013c:	00731863          	bne	t1,t2,1014c <fail>
+   10140:	00000513          	li	a0,0
+   10144:	05d00893          	li	a7,93
+   10148:	00000073          	ecall
+
+000000000001014c <fail>:
+   1014c:	00100513          	li	a0,1
+   10150:	05d00893          	li	a7,93
+   10154:	00000073          	ecall
+   10158:	00000013          	nop
+
+Disassembly of section .data:
+
+0000000000011160 <__DATA_BEGIN__>:
+	...
+
+Disassembly of section .riscv.attributes:
+
+0000000000000000 <.riscv.attributes>:
+   0:	1941                	.insn	2, 0x1941
+   2:	0000                	.insn	2, 0x0000
+   4:	7200                	.insn	2, 0x7200
+   6:	7369                	.insn	2, 0x7369
+   8:	01007663          	bgeu	zero,a6,14 <_start-0x100d4>
+   c:	0000000f          	fence	unknown,unknown
+  10:	7205                	.insn	2, 0x7205
+  12:	3676                	.insn	2, 0x3676
+  14:	6934                	.insn	2, 0x6934
+  16:	7032                	.insn	2, 0x7032
+  18:	0031                	.insn	2, 0x0031

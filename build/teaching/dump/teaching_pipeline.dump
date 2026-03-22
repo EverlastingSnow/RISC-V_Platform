@@ -1,0 +1,90 @@
+
+E:\platform\RISC-V_Platform\build\teaching\teaching_pipeline.elf:     file format elf64-littleriscv
+
+
+Disassembly of section .text:
+
+00000000000100e8 <_start>:
+   100e8:	00c0006f          	j	100f4 <test_pipeline>
+   100ec:	00000013          	nop
+   100f0:	00000013          	nop
+
+00000000000100f4 <test_pipeline>:
+   100f4:	06400093          	li	ra,100
+   100f8:	03200113          	li	sp,50
+   100fc:	01900193          	li	gp,25
+   10100:	00208233          	add	tp,ra,sp
+   10104:	403082b3          	sub	t0,ra,gp
+   10108:	00411313          	slli	t1,sp,0x4
+   1010c:	00330333          	add	t1,t1,gp
+   10110:	00001517          	auipc	a0,0x1
+   10114:	0a850513          	addi	a0,a0,168 # 111b8 <__DATA_BEGIN__>
+   10118:	00453023          	sd	tp,0(a0)
+   1011c:	00552423          	sw	t0,8(a0)
+   10120:	00053583          	ld	a1,0(a0)
+   10124:	00852603          	lw	a2,8(a0)
+   10128:	0006061b          	sext.w	a2,a2
+   1012c:	09600693          	li	a3,150
+   10130:	06d21863          	bne	tp,a3,101a0 <fail>
+   10134:	04b00693          	li	a3,75
+   10138:	06d29463          	bne	t0,a3,101a0 <fail>
+   1013c:	09600693          	li	a3,150
+   10140:	06d59063          	bne	a1,a3,101a0 <fail>
+   10144:	04b00693          	li	a3,75
+   10148:	04d61c63          	bne	a2,a3,101a0 <fail>
+   1014c:	00100713          	li	a4,1
+   10150:	00200793          	li	a5,2
+   10154:	00f70663          	beq	a4,a5,10160 <branch_taken>
+   10158:	06400813          	li	a6,100
+   1015c:	0080006f          	j	10164 <continue1>
+
+0000000000010160 <branch_taken>:
+   10160:	3e700813          	li	a6,999
+
+0000000000010164 <continue1>:
+   10164:	06400693          	li	a3,100
+   10168:	02d81c63          	bne	a6,a3,101a0 <fail>
+   1016c:	00000893          	li	a7,0
+   10170:	00500913          	li	s2,5
+
+0000000000010174 <loop_start>:
+   10174:	001888b3          	add	a7,a7,ra
+   10178:	fff90913          	addi	s2,s2,-1
+   1017c:	fe091ce3          	bnez	s2,10174 <loop_start>
+   10180:	1f400693          	li	a3,500
+   10184:	00d89e63          	bne	a7,a3,101a0 <fail>
+   10188:	024009ef          	jal	s3,101ac <function_call>
+   1018c:	09600693          	li	a3,150
+   10190:	00da1863          	bne	s4,a3,101a0 <fail>
+   10194:	00000513          	li	a0,0
+   10198:	05d00893          	li	a7,93
+   1019c:	00000073          	ecall
+
+00000000000101a0 <fail>:
+   101a0:	00100513          	li	a0,1
+   101a4:	05d00893          	li	a7,93
+   101a8:	00000073          	ecall
+
+00000000000101ac <function_call>:
+   101ac:	00208a33          	add	s4,ra,sp
+   101b0:	00098067          	jr	s3
+
+Disassembly of section .data:
+
+00000000000111b8 <__DATA_BEGIN__>:
+	...
+
+Disassembly of section .riscv.attributes:
+
+0000000000000000 <.riscv.attributes>:
+   0:	1941                	.insn	2, 0x1941
+   2:	0000                	.insn	2, 0x0000
+   4:	7200                	.insn	2, 0x7200
+   6:	7369                	.insn	2, 0x7369
+   8:	01007663          	bgeu	zero,a6,14 <_start-0x100d4>
+   c:	0000000f          	fence	unknown,unknown
+  10:	7205                	.insn	2, 0x7205
+  12:	3676                	.insn	2, 0x3676
+  14:	6934                	.insn	2, 0x6934
+  16:	7032                	.insn	2, 0x7032
+  18:	0031                	.insn	2, 0x0031
