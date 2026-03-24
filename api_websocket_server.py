@@ -6,6 +6,11 @@ import os
 import signal
 import time
 from typing import Optional, Dict, Any
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+
+import stats
+print(f"[STATS] stats module imported successfully. File: {stats.__file__}")
 
 PORT = 8081
 SIM_SERVER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "build", "riscv_sim_server.exe")
@@ -169,18 +174,83 @@ class CppSimulator:
             self.process = None
 
 
+class StatsHTTPHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        print(f"[STATS] HTTP GET request: {self.path}")
+        if self.path == "/api/stats":
+            data = stats.get_stats()
+            print(f"[STATS] Returning stats: {data}")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.end_headers()
+            self.wfile.write(json.dumps(data).encode())
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_POST(self):
+        if self.path == "/api/stats/reset":
+            stats.reset_stats()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok"}).encode())
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        pass
+
+
+class StatsHTTPServer(HTTPServer):
+    def __init__(self, port, ws_server):
+        super().__init__(("", port), StatsHTTPHandler)
+        self.ws_server = ws_server
+
+
 class WebSocketServer:
     def __init__(self):
         self.sim: Optional[CppSimulator] = None
         self.run_task: Optional[asyncio.Task] = None
         self.running = False
         self.command_lock = asyncio.Lock()
+        stats.init_stats_db()
+        self.client_start_times: Dict[str, float] = {}
+        self._start_http_server()
+
+    def _start_http_server(self):
+        HTTP_PORT = 8082
+        try:
+            server = StatsHTTPServer(HTTP_PORT, self)
+            thread = threading.Thread(target=server.serve_forever)
+            thread.daemon = True
+            thread.start()
+            print(f"HTTP stats server running on port {HTTP_PORT}")
+        except Exception as e:
+            print(f"Failed to start HTTP server on port {HTTP_PORT}: {e}")
 
     def init_simulator(self) -> bool:
         self.sim = CppSimulator()
         return self.sim.start()
 
     async def handle_client(self, websocket):
+        client_id = str(id(websocket))
+        start_time = time.time()
+        duration_recorded = False
+        stats.increment_visit()
+        print(f"[STATS] New client connected. Visit count incremented. Current: {stats.get_stats()}")
         try:
             async for message in websocket:
                 async with self.command_lock:
@@ -475,6 +545,13 @@ class WebSocketServer:
                         await websocket.send(json.dumps(response))
         except websockets.exceptions.ConnectionClosed:
             self.running = False
+        finally:
+            if not duration_recorded:
+                duration_recorded = True
+                duration = int(time.time() - start_time)
+                if duration > 0:
+                    stats.add_duration(duration)
+                    print(f"[STATS] Client disconnected. Duration: {duration}s. Current: {stats.get_stats()}")
 
     async def start(self):
         print(f"Initializing C++ simulator...")
