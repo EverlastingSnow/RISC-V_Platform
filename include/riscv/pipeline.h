@@ -1,10 +1,31 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 
 #include "riscv/decoder.h"
 
 namespace riscv {
+
+struct UserControlSignals {
+    std::optional<bool> reg_write{std::nullopt};
+    std::optional<bool> alu_src{std::nullopt};
+    std::optional<bool> mem_read{std::nullopt};
+    std::optional<bool> mem_write{std::nullopt};
+    std::optional<bool> branch{std::nullopt};
+    
+    bool has_any() const {
+        return reg_write || alu_src || mem_read || mem_write || branch;
+    }
+    
+    void clear() {
+        reg_write = std::nullopt;
+        alu_src = std::nullopt;
+        mem_read = std::nullopt;
+        mem_write = std::nullopt;
+        branch = std::nullopt;
+    }
+};
 
 struct IFID {
     bool valid{false};
@@ -17,6 +38,7 @@ struct IDEX {
     DecodedInstruction instr{};
     u64 rs1_value{0};
     u64 rs2_value{0};
+    UserControlSignals user_signals{};
 };
 
 struct EXMEM {
@@ -29,17 +51,19 @@ struct EXMEM {
     bool csr_write{false};
     u32 csr_addr{0};
     u64 csr_new_val{0};
+    UserControlSignals user_signals{};
 };
 
 struct MEMWB {
     bool valid{false};
     DecodedInstruction instr{};
     u64 wb_value{0};
-    u64 mem_addr{0};  // 保存 store/load 的地址，用于 store-forwarding
-    u64 store_data{0};  // 保存 store 的数据，用于 store-forwarding
+    u64 mem_addr{0};
+    u64 store_data{0};
     bool csr_write{false};
     u32 csr_addr{0};
     u64 csr_new_val{0};
+    UserControlSignals user_signals{};
 };
 
 struct StageSignals {
@@ -62,5 +86,3 @@ struct PipelineState {
 };
 
 }  // namespace riscv
-
-

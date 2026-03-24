@@ -159,6 +159,8 @@ CMakeFiles/riscv_sim.dir/src/main.cpp.obj: \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/stl_bvector.h \
  F:/msys64/ucrt64/include/c++/15.1.0/bits/vector.tcc \
  E:/platform/RISC-V_Platform/include/riscv/simulator.h \
+ F:/msys64/ucrt64/include/c++/15.1.0/optional \
+ F:/msys64/ucrt64/include/c++/15.1.0/bits/enable_special_members.h \
  E:/platform/RISC-V_Platform/include/riscv/csr.h \
  E:/platform/RISC-V_Platform/include/riscv/types.h \
  F:/msys64/ucrt64/include/c++/15.1.0/cstdint \

@@ -182,6 +182,11 @@ void RISCVSimulator::step() {
     if (halted_) {
         return;
     }
+    
+    // If waiting for user input, pause the pipeline
+    if (waiting_for_input_) {
+        return;
+    }
 
     stall_fetch_ = false;
     flush_decode_ = false;
@@ -318,34 +323,13 @@ void RISCVSimulator::stage_id() {
         return;
     }
     
+    auto saved_user_signals = next_id_ex_.user_signals;
     next_id_ex_ = {};
     if (!if_id_.valid) {
         return;
     }
 
     auto instr = decode(if_id_.inst, if_id_.pc);
-
-    // 特权级检查暂时禁用
-    // bool needs_supervisor_or_machine = false;
-    // switch (instr.kind) {
-    //     case InstructionKind::SRET:
-    //     case InstructionKind::SFENCE_VMA:
-    //         needs_supervisor_or_machine = true;
-    //         break;
-    //     default:
-    //         break;
-    // }
-    // 
-    // if (needs_supervisor_or_machine) {
-    //     u64 mstatus = csr_.read(CSR_MSTATUS);
-    //     u64 current_priv = (mstatus >> 11) & 0x3;
-    //     if (current_priv == 0) {
-    //         instr.kind = InstructionKind::INVALID;
-    //     }
-    // }
-
-    if (instr.rd == 3 && instr.writes_rd()) {
-    }
 
     const bool load_use_hazard = id_ex_.valid && id_ex_.instr.is_load() && id_ex_.instr.rd != 0 &&
                         ((uses_rs1(instr.kind) && instr.rs1 == id_ex_.instr.rd) ||
@@ -380,6 +364,11 @@ void RISCVSimulator::stage_id() {
     next_id_ex_.rs1_value = uses_rs1(instr.kind) ? regs_.read(instr.rs1) : 0;
     next_id_ex_.rs2_value = uses_rs2(instr.kind) ? regs_.read(instr.rs2) : 0;
 
+    if (!waiting_for_input_) {
+        next_id_ex_.user_signals.clear();
+    } else {
+        next_id_ex_.user_signals = saved_user_signals;
+    }
 }
 
 void RISCVSimulator::stage_ex() {
@@ -874,6 +863,9 @@ void RISCVSimulator::stage_ex() {
     next_ex_mem_.rs2_value = rs2_val;
     next_ex_mem_.branch_taken = branch_taken;
     next_ex_mem_.branch_target = branch_target;
+    
+    // Propagate user signals from ID/EX to EX/MEM
+    next_ex_mem_.user_signals = id_ex_.user_signals;
 
     if (instr.is_csr()) {
         next_ex_mem_.csr_write = true;
@@ -1027,74 +1019,29 @@ void RISCVSimulator::stage_mem() {
     next_mem_wb_.csr_write = ex_mem_.csr_write;
     next_mem_wb_.csr_addr = ex_mem_.csr_addr;
     next_mem_wb_.csr_new_val = ex_mem_.csr_new_val;
+    
+    // Propagate user signals from EX/MEM to MEM/WB
+    next_mem_wb_.user_signals = ex_mem_.user_signals;
 }
 
 void RISCVSimulator::stage_wb() {
     if (!mem_wb_.valid) {
+        last_wb_result.valid = false;
         return;
     }
     
-    // 非法指令：触发异常而不是直接停机
-    if (!mem_wb_.instr.is_valid()) {
-        // 从内存中读取实际指令编码用于 mtval
-        u32 illegal_inst = memory_.read32(mem_wb_.instr.pc);
-        
-        // 设置异常相关 CSR
-        csr_.write(0x341, mem_wb_.instr.pc);  // mepc = 非法指令地址
-        csr_.write(0x342, 2);                  // mcause = 2 (Illegal instruction)
-        csr_.write(0x343, illegal_inst);       // mtval = 非法指令编码
-        
-        // 更新 mstatus: MPIE = MIE, MIE = 0
-        u64 mstatus = csr_.read(CSR_MSTATUS);
-        constexpr u64 MSTATUS_MIE = 1ULL << 3;
-        constexpr u64 MSTATUS_MPIE = 1ULL << 7;
-        u64 old_mie = (mstatus & MSTATUS_MIE) ? 1 : 0;
-        mstatus = (mstatus & ~MSTATUS_MPIE) | (old_mie ? MSTATUS_MPIE : 0);
-        mstatus &= ~MSTATUS_MIE;
-        csr_.write(CSR_MSTATUS, mstatus);
-        
-        // 跳转到异常处理程序（支持向量模式）
-        u64 mtvec = csr_.read(0x305);
-        u64 mtvec_mode = mtvec & 0x3;
-        u64 mtvec_base = mtvec & ~0x3ULL;
-        u64 cause = 2;  // Illegal instruction
-        u64 target;
-        
-        if (mtvec_mode == 1) {
-            target = mtvec_base + 4 * cause;
-        } else {
-            target = mtvec_base;
-        }
-        
-        redirect_ = true;
-        redirect_target_ = target;
-        flush_decode_ = true;
-        flush_execute_ = true;
-        
-        // 清空所有流水线寄存器
-        if_id_ = {};
-        id_ex_ = {};
-        ex_mem_ = {};
-        mem_wb_ = {};
-        next_if_id_ = {};
-        next_id_ex_ = {};
-        next_ex_mem_ = {};
-        next_mem_wb_ = {};
-        
-        return;
-    }
-    
-    // Record WB result before applying external signals
+    // Record WB result before applying user signals
     last_wb_result.valid = mem_wb_.valid;
     last_wb_result.pc = mem_wb_.instr.pc;
     last_wb_result.wb_en = mem_wb_.instr.writes_rd();
     last_wb_result.wb_raddr = mem_wb_.instr.rd;
     last_wb_result.wb_rdata = mem_wb_.wb_value;
     
-    // Apply external control signals for RegWrite
+    // Use user signals from pipeline register (flowed from ID stage)
     bool should_write = mem_wb_.instr.writes_rd();
-    if (external_signals.reg_write.has_value()) {
-        should_write = external_signals.reg_write.value();
+    if (mem_wb_.user_signals.reg_write.has_value()) {
+        should_write = mem_wb_.user_signals.reg_write.value();
+        last_wb_result.user_reg_write = mem_wb_.user_signals.reg_write;
     }
     
     if (should_write) {
@@ -1102,8 +1049,7 @@ void RISCVSimulator::stage_wb() {
         regs_.write(mem_wb_.instr.rd, val);
     }
     
-    // Update last_wb_result with actual write decision
-    last_wb_result.wb_en = should_write;
+    last_wb_result.actual_wb_en = should_write;
 
     if (mem_wb_.instr.kind == InstructionKind::ECALL) {
         halted_ = true;
@@ -1159,6 +1105,31 @@ void RISCVSimulator::update_pipeline_state() {
     pipeline_state_.writeback = {mem_wb_.valid, mem_wb_.instr.pc, mem_wb_.instr.raw,
                                  mem_wb_.instr.rd, mem_wb_.instr.rs1, mem_wb_.instr.rs2,
                                  static_cast<u64>(mem_wb_.instr.imm)};
+}
+
+void RISCVSimulator::set_waiting_for_input(bool waiting, u64 pc) {
+    waiting_for_input_ = waiting;
+    waiting_pc_ = pc;
+}
+
+void RISCVSimulator::set_user_signal_for_id(const std::string& signal_name, bool value) {
+    if (waiting_for_input_) {
+        if (signal_name == "RegWrite") {
+            next_id_ex_.user_signals.reg_write = value;
+        } else if (signal_name == "ALUSrc") {
+            next_id_ex_.user_signals.alu_src = value;
+        } else if (signal_name == "MemRead") {
+            next_id_ex_.user_signals.mem_read = value;
+        } else if (signal_name == "MemWrite") {
+            next_id_ex_.user_signals.mem_write = value;
+        } else if (signal_name == "Branch") {
+            next_id_ex_.user_signals.branch = value;
+        }
+    }
+}
+
+void RISCVSimulator::clear_user_signals_for_id() {
+    next_id_ex_.user_signals.clear();
 }
 
 }  // namespace riscv

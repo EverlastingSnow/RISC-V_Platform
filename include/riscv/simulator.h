@@ -17,26 +17,6 @@ enum class HaltReason {
     InvalidInstruction,
 };
 
-struct ExternalControlSignals {
-    std::optional<bool> reg_write;
-    std::optional<bool> alu_src;
-    std::optional<bool> mem_read;
-    std::optional<bool> mem_write;
-    std::optional<bool> branch;
-    
-    void clear() {
-        reg_write.reset();
-        alu_src.reset();
-        mem_read.reset();
-        mem_write.reset();
-        branch.reset();
-    }
-    
-    bool has_any() const {
-        return reg_write || alu_src || mem_read || mem_write || branch;
-    }
-};
-
 class RISCVSimulator {
 public:
     RISCVSimulator();
@@ -63,7 +43,6 @@ public:
     [[nodiscard]] u64 halt_pc() const { return halt_pc_; }
     [[nodiscard]] u32 halt_inst() const { return halt_inst_; }
 
-    // Additional methods to expose internal state for API
     [[nodiscard]] const IFID& if_id() const { return if_id_; }
     [[nodiscard]] const IDEX& id_ex() const { return id_ex_; }
     [[nodiscard]] const EXMEM& ex_mem() const { return ex_mem_; }
@@ -75,16 +54,24 @@ public:
     [[nodiscard]] bool flush_execute() const { return flush_execute_; }
     [[nodiscard]] u64 next_pc() const { return next_pc_; }
     
-    // External control signals for difftest
-    ExternalControlSignals external_signals;
+    // Pause control for difftest
+    void set_waiting_for_input(bool waiting, u64 pc = 0);
+    [[nodiscard]] bool is_waiting_for_input() const { return waiting_for_input_; }
+    [[nodiscard]] u64 get_waiting_pc() const { return waiting_pc_; }
+    
+    // Set user signal for ID stage (will flow through pipeline)
+    void set_user_signal_for_id(const std::string& signal_name, bool value);
+    void clear_user_signals_for_id();
     
     // WB result for comparison
     struct WBResult {
         bool valid{false};
         u64 pc{0};
-        bool wb_en{false};
+        bool wb_en{false};           // Default wb enable (from instruction decode)
         u32 wb_raddr{0};
         u64 wb_rdata{0};
+        std::optional<bool> user_reg_write{std::nullopt};  // User's input for RegWrite
+        bool actual_wb_en{false};    // Actual wb enable (after applying user signal)
     };
     WBResult last_wb_result;
 
@@ -125,7 +112,10 @@ private:
     bool flush_decode_{false};
     bool flush_execute_{false};
     u64 next_pc_{RESET_VECTOR};
+    
+    // Pause control
+    bool waiting_for_input_{false};
+    u64 waiting_pc_{0};
 };
 
 }  // namespace riscv
-
