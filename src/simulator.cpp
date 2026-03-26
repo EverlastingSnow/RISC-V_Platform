@@ -364,10 +364,13 @@ void RISCVSimulator::stage_id() {
     next_id_ex_.rs1_value = uses_rs1(instr.kind) ? regs_.read(instr.rs1) : 0;
     next_id_ex_.rs2_value = uses_rs2(instr.kind) ? regs_.read(instr.rs2) : 0;
 
-    if (!waiting_for_input_) {
-        next_id_ex_.user_signals.clear();
-    } else {
+    if (waiting_for_input_ && if_id_.pc == waiting_pc_) {
         next_id_ex_.user_signals = saved_user_signals;
+    } else if (!waiting_for_input_ && !waiting_handled_ && if_id_.pc == waiting_pc_) {
+        next_id_ex_.user_signals = saved_user_signals;
+    } else {
+        next_id_ex_.user_signals.clear();
+        waiting_handled_ = false;
     }
 }
 
@@ -1109,7 +1112,9 @@ void RISCVSimulator::update_pipeline_state() {
 
 void RISCVSimulator::set_waiting_for_input(bool waiting, u64 pc) {
     waiting_for_input_ = waiting;
-    waiting_pc_ = pc;
+    if (waiting || pc != 0) {
+        waiting_pc_ = pc;
+    }
 }
 
 void RISCVSimulator::set_user_signal_for_id(const std::string& signal_name, bool value) {

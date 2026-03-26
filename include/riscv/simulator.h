@@ -58,6 +58,7 @@ public:
     void set_waiting_for_input(bool waiting, u64 pc = 0);
     [[nodiscard]] bool is_waiting_for_input() const { return waiting_for_input_; }
     [[nodiscard]] u64 get_waiting_pc() const { return waiting_pc_; }
+    void set_waiting_handled(bool handled) { waiting_handled_ = handled; }
     
     // Set user signal for ID stage (will flow through pipeline)
     void set_user_signal_for_id(const std::string& signal_name, bool value);
@@ -116,6 +117,7 @@ private:
     // Pause control
     bool waiting_for_input_{false};
     u64 waiting_pc_{0};
+    bool waiting_handled_{false};
 };
 
 }  // namespace riscv

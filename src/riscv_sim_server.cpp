@@ -1030,28 +1030,41 @@ int main() {
                         for (const auto& [sig_name, sig_value] : g_difftest.user_signals) {
                             g_difftest.shadow_sim->set_user_signal_for_id(sig_name, sig_value);
                         }
+                        g_difftest.shadow_sim->set_waiting_handled(false);
                     }
-                    
+
                     // Clear waiting state
                     g_difftest.waiting_for_input = false;
                     sim->set_waiting_for_input(false);
                     if (g_difftest.shadow_sim) {
                         g_difftest.shadow_sim->set_waiting_for_input(false);
                     }
-                    
-                    // Step both simulators
+
+                    // Step both simulators to let the instruction flow through pipeline
                     sim->step();
                     if (g_difftest.shadow_sim) {
                         g_difftest.shadow_sim->step();
                     }
-                    
-                    // Check WB diff
+
+                    // Check WB diff after first step
                     check_wb_diff(sim.get());
+
+                    // If no diff detected, step again to let the instruction reach WB stage
+                    if (!g_difftest.diff_detected) {
+                        sim->step();
+                        if (g_difftest.shadow_sim) {
+                            g_difftest.shadow_sim->step();
+                        }
+                        check_wb_diff(sim.get());
+                    }
 
                     // Clear user signals
                     g_difftest.user_signals.clear();
-                    
-                    output_signals(*sim);
+
+                    // Only output signals if no diff detected
+                    if (!g_difftest.diff_detected) {
+                        output_signals(*sim);
+                    }
                     std::cout.flush();
                     continue;
                 }
