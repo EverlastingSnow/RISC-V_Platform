@@ -1102,9 +1102,9 @@ void RISCVSimulator::update_pipeline_state() {
     pipeline_state_.execute = {ex_mem_.valid, ex_mem_.instr.pc, ex_mem_.instr.raw, ex_mem_.instr.rd,
                                ex_mem_.instr.rs1, ex_mem_.instr.rs2,
                                static_cast<u64>(ex_mem_.instr.imm)};
-    pipeline_state_.memory = {mem_wb_.valid, ex_mem_.instr.pc, ex_mem_.instr.raw, ex_mem_.instr.rd,
-                              ex_mem_.instr.rs1, ex_mem_.instr.rs2,
-                              static_cast<u64>(ex_mem_.instr.imm)};
+    pipeline_state_.memory = {mem_wb_.valid, mem_wb_.instr.pc, mem_wb_.instr.raw, mem_wb_.instr.rd,
+                              mem_wb_.instr.rs1, mem_wb_.instr.rs2,
+                              static_cast<u64>(mem_wb_.instr.imm)};
     pipeline_state_.writeback = {mem_wb_.valid, mem_wb_.instr.pc, mem_wb_.instr.raw,
                                  mem_wb_.instr.rd, mem_wb_.instr.rs1, mem_wb_.instr.rs2,
                                  static_cast<u64>(mem_wb_.instr.imm)};

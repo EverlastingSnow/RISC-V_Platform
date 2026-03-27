@@ -1,6 +1,5 @@
 E:/platform/RISC-V_Platform/build/CMakeFiles/riscv_core.dir
 E:/platform/RISC-V_Platform/build/CMakeFiles/riscv_sim.dir
-E:/platform/RISC-V_Platform/build/CMakeFiles/riscv_instr_tests.dir
 E:/platform/RISC-V_Platform/build/CMakeFiles/run_riscv_tests.dir
 E:/platform/RISC-V_Platform/build/CMakeFiles/riscv_sim_server.dir
 E:/platform/RISC-V_Platform/build/CMakeFiles/edit_cache.dir

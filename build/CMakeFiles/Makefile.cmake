@@ -53,7 +53,6 @@ set(CMAKE_MAKEFILE_PRODUCTS
 set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/riscv_core.dir/DependInfo.cmake"
   "CMakeFiles/riscv_sim.dir/DependInfo.cmake"
-  "CMakeFiles/riscv_instr_tests.dir/DependInfo.cmake"
   "CMakeFiles/run_riscv_tests.dir/DependInfo.cmake"
   "CMakeFiles/riscv_sim_server.dir/DependInfo.cmake"
   )

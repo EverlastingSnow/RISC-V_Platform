@@ -142,19 +142,6 @@ riscv_sim/fast:
 .PHONY : riscv_sim/fast
 
 #=============================================================================
-# Target rules for targets named riscv_instr_tests
-
-# Build rule for target.
-riscv_instr_tests: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 riscv_instr_tests
-.PHONY : riscv_instr_tests
-
-# fast build rule for target.
-riscv_instr_tests/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_instr_tests.dir\build.make CMakeFiles/riscv_instr_tests.dir/build
-.PHONY : riscv_instr_tests/fast
-
-#=============================================================================
 # Target rules for targets named run_riscv_tests
 
 # Build rule for target.
@@ -233,7 +220,6 @@ src/elf_loader.obj: src/elf_loader.cpp.obj
 
 # target to build an object file
 src/elf_loader.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_instr_tests.dir\build.make CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.obj
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\run_riscv_tests.dir\build.make CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.obj
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim_server.dir\build.make CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.obj
 .PHONY : src/elf_loader.cpp.obj
@@ -243,7 +229,6 @@ src/elf_loader.i: src/elf_loader.cpp.i
 
 # target to preprocess a source file
 src/elf_loader.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_instr_tests.dir\build.make CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\run_riscv_tests.dir\build.make CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim_server.dir\build.make CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.i
 .PHONY : src/elf_loader.cpp.i
@@ -253,7 +238,6 @@ src/elf_loader.s: src/elf_loader.cpp.s
 
 # target to generate assembly for a file
 src/elf_loader.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_instr_tests.dir\build.make CMakeFiles/riscv_instr_tests.dir/src/elf_loader.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\run_riscv_tests.dir\build.make CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_sim_server.dir\build.make CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.s
 .PHONY : src/elf_loader.cpp.s
@@ -402,30 +386,6 @@ src/simulator.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_core.dir\build.make CMakeFiles/riscv_core.dir/src/simulator.cpp.s
 .PHONY : src/simulator.cpp.s
 
-test/instruction_tests.obj: test/instruction_tests.cpp.obj
-.PHONY : test/instruction_tests.obj
-
-# target to build an object file
-test/instruction_tests.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_instr_tests.dir\build.make CMakeFiles/riscv_instr_tests.dir/test/instruction_tests.cpp.obj
-.PHONY : test/instruction_tests.cpp.obj
-
-test/instruction_tests.i: test/instruction_tests.cpp.i
-.PHONY : test/instruction_tests.i
-
-# target to preprocess a source file
-test/instruction_tests.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_instr_tests.dir\build.make CMakeFiles/riscv_instr_tests.dir/test/instruction_tests.cpp.i
-.PHONY : test/instruction_tests.cpp.i
-
-test/instruction_tests.s: test/instruction_tests.cpp.s
-.PHONY : test/instruction_tests.s
-
-# target to generate assembly for a file
-test/instruction_tests.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\riscv_instr_tests.dir\build.make CMakeFiles/riscv_instr_tests.dir/test/instruction_tests.cpp.s
-.PHONY : test/instruction_tests.cpp.s
-
 # Help Target
 help:
 	@echo The following are some of the valid targets for this Makefile:
@@ -435,7 +395,6 @@ help:
 	@echo ... edit_cache
 	@echo ... rebuild_cache
 	@echo ... riscv_core
-	@echo ... riscv_instr_tests
 	@echo ... riscv_sim
 	@echo ... riscv_sim_server
 	@echo ... run_riscv_tests
@@ -466,9 +425,6 @@ help:
 	@echo ... src/simulator.obj
 	@echo ... src/simulator.i
 	@echo ... src/simulator.s
-	@echo ... test/instruction_tests.obj
-	@echo ... test/instruction_tests.i
-	@echo ... test/instruction_tests.s
 .PHONY : help
 
 

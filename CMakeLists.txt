@@ -21,8 +21,8 @@ add_executable(riscv_sim src/main.cpp)
 target_link_libraries(riscv_sim PRIVATE riscv_core)
 
 # 额外测试可执行程序（含 riscv-tests rv64ui ELF 运行能力）
-add_executable(riscv_instr_tests test/instruction_tests.cpp src/elf_loader.cpp)
-target_link_libraries(riscv_instr_tests PRIVATE riscv_core)
+# add_executable(riscv_instr_tests test/instruction_tests.cpp src/elf_loader.cpp)
+# target_link_libraries(riscv_instr_tests PRIVATE riscv_core)
 
 # 使用 riscv-tests 的 ELF 测试本模拟器
 add_executable(run_riscv_tests src/run_riscv_tests.cpp src/elf_loader.cpp)

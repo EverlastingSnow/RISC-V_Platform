@@ -443,169 +443,65 @@ void output_signals_body(riscv::RISCVSimulator& sim) {
     std::cout << "\"cycle\":" << sim.cycle()
               << ",\"pc\":\"0x" << std::hex << sim.pc() << std::dec << "\"";
 
-    std::cout << ",\"fetch\":{"
-              << "\"pc\":\"0x" << std::hex << sim.pc() << std::dec << "\","
+    auto if_id_instr = if_id.valid ? riscv::decode(if_id.inst, if_id.pc) : riscv::DecodedInstruction{};
+
+    std::cout << ",\"if_id\":{"
+              << "\"pc\":\"0x" << std::hex << if_id.pc << std::dec << "\","
               << "\"valid\":" << (if_id.valid ? "true" : "false") << ","
+              << "\"inst\":" << if_id.inst << ","
+              << "\"instruction\":\"" << (if_id.valid ? riscv::to_string(if_id_instr.kind) : "NONE") << "\","
               << "\"target\":\"0x" << std::hex << sim.redirect_target() << std::dec << "\","
               << "\"taken\":" << (sim.redirect() ? "true" : "false") << ","
               << "\"PC_next\":\"0x" << std::hex << sim.next_pc() << std::dec << "\","
               << "\"allow_to_go\":" << ((!sim.stall_fetch() && !sim.halted()) ? "true" : "false")
               << "}";
 
-    auto decode_instr = if_id.valid ? riscv::decode(if_id.inst, if_id.pc) : riscv::DecodedInstruction{};
-    riscv::u32 src1_raddr = if_id.valid && uses_rs1(decode_instr.kind) ? decode_instr.rs1 : 0;
-    riscv::u32 src2_raddr = if_id.valid && uses_rs2(decode_instr.kind) ? decode_instr.rs2 : 0;
+    auto id_ex_instr = id_ex.valid ? riscv::decode(id_ex.instr.raw, id_ex.instr.pc) : riscv::DecodedInstruction{};
+    riscv::u32 id_ex_src1_raddr = id_ex.valid && uses_rs1(id_ex_instr.kind) ? id_ex_instr.rs1 : 0;
+    riscv::u32 id_ex_src2_raddr = id_ex.valid && uses_rs2(id_ex_instr.kind) ? id_ex_instr.rs2 : 0;
 
-    std::cout << ",\"decode\":{"
-              << "\"pc\":\"0x" << std::hex << (if_id.valid ? if_id.pc : 0) << std::dec << "\","
-              << "\"inst\":" << (if_id.valid ? if_id.inst : 0) << ","
-              << "\"src1_raddr\":" << src1_raddr << ","
-              << "\"src1_rdata\":\"0x" << std::hex << sim.registers().read(src1_raddr) << std::dec << "\","
-              << "\"src2_raddr\":" << src2_raddr << ","
-              << "\"src2_rdata\":\"0x" << std::hex << sim.registers().read(src2_raddr) << std::dec << "\","
-              << "\"imm\":\"0x" << std::hex << (if_id.valid ? decode_instr.imm : 0) << std::dec << "\","
-              << "\"decodeInfo\":{\"src1_ren\":" << (if_id.valid && uses_rs1(decode_instr.kind) ? "true" : "false")
-              << ",\"src2_ren\":" << (if_id.valid && uses_rs2(decode_instr.kind) ? "true" : "false")
-              << ",\"src1_raddr\":" << src1_raddr
-              << ",\"src2_raddr\":" << src2_raddr << "}}";
-
-    std::cout << ",\"execute\":{"
-              << "\"pc\":\"0x" << std::hex << (if_id.valid ? if_id.pc : 0) << std::dec << "\","
-              << "\"valid\":" << (if_id.valid ? "true" : "false") << ",";
-
-    if (if_id.valid) {
-        riscv::u64 rs1_val = sim.registers().read(src1_raddr);
-        riscv::u64 rs2_val = sim.registers().read(src2_raddr);
-
-        auto forward_from_ex_mem = [&](riscv::u32 reg) -> std::optional<riscv::u64> {
-            if (!ex_mem.valid || !ex_mem.instr.writes_rd() || ex_mem.instr.is_load()) return std::nullopt;
-            if (reg != 0 && ex_mem.instr.rd == reg) return ex_mem.alu_result;
-            return std::nullopt;
-        };
-
-        auto forward_from_mem_wb = [&](riscv::u32 reg) -> std::optional<riscv::u64> {
-            if (!mem_wb.valid || !mem_wb.instr.writes_rd()) return std::nullopt;
-            if (reg != 0 && mem_wb.instr.rd == reg) return mem_wb.wb_value;
-            return std::nullopt;
-        };
-
-        if (uses_rs1(decode_instr.kind)) {
-            if (auto val = forward_from_ex_mem(decode_instr.rs1))
-                rs1_val = *val;
-            else if (auto val2 = forward_from_mem_wb(decode_instr.rs1))
-                rs1_val = *val2;
-        }
-        if (uses_rs2(decode_instr.kind)) {
-            if (auto val = forward_from_ex_mem(decode_instr.rs2))
-                rs2_val = *val;
-            else if (auto val2 = forward_from_mem_wb(decode_instr.rs2))
-                rs2_val = *val2;
-        }
-
-        riscv::u64 alu_src2 = (!uses_rs2(decode_instr.kind)) ? static_cast<riscv::u64>(decode_instr.imm) : rs2_val;
-        riscv::u64 alu_result = 0;
-
-        switch (decode_instr.kind) {
-            case riscv::InstructionKind::ADDI:
-            case riscv::InstructionKind::ADD:
-                alu_result = rs1_val + alu_src2;
-                break;
-            case riscv::InstructionKind::SUB:
-                alu_result = rs1_val - rs2_val;
-                break;
-            case riscv::InstructionKind::ANDI:
-            case riscv::InstructionKind::AND:
-                alu_result = rs1_val & alu_src2;
-                break;
-            case riscv::InstructionKind::ORI:
-            case riscv::InstructionKind::OR:
-                alu_result = rs1_val | alu_src2;
-                break;
-            case riscv::InstructionKind::XORI:
-            case riscv::InstructionKind::XOR:
-                alu_result = rs1_val ^ alu_src2;
-                break;
-            case riscv::InstructionKind::SLLI:
-            case riscv::InstructionKind::SLL:
-                alu_result = rs1_val << (alu_src2 & 0x3F);
-                break;
-            case riscv::InstructionKind::SRLI:
-            case riscv::InstructionKind::SRL:
-                alu_result = rs1_val >> (alu_src2 & 0x3F);
-                break;
-            case riscv::InstructionKind::SRAI:
-            case riscv::InstructionKind::SRA:
-                alu_result = static_cast<riscv::u64>(static_cast<riscv::s64>(rs1_val) >> (alu_src2 & 0x3F));
-                break;
-            case riscv::InstructionKind::SLTI:
-            case riscv::InstructionKind::SLT:
-                alu_result = (static_cast<riscv::s64>(rs1_val) < static_cast<riscv::s64>(alu_src2)) ? 1 : 0;
-                break;
-            case riscv::InstructionKind::SLTIU:
-            case riscv::InstructionKind::SLTU:
-                alu_result = (rs1_val < alu_src2) ? 1 : 0;
-                break;
-            case riscv::InstructionKind::LUI:
-                alu_result = static_cast<riscv::u64>(static_cast<riscv::s32>(decode_instr.imm & 0xFFFFFFFFu));
-                break;
-            case riscv::InstructionKind::AUIPC:
-                alu_result = if_id.pc + static_cast<riscv::u64>(decode_instr.imm);
-                break;
-            case riscv::InstructionKind::ADDIW:
-            case riscv::InstructionKind::ADDW: {
-                riscv::s32 r = static_cast<riscv::s32>(static_cast<riscv::s64>(rs1_val) + static_cast<riscv::s64>(alu_src2));
-                alu_result = static_cast<riscv::u64>(r);
-                break;
-            }
-            case riscv::InstructionKind::SUBW: {
-                riscv::s32 r = static_cast<riscv::s32>(static_cast<riscv::s64>(rs1_val) - static_cast<riscv::s64>(rs2_val));
-                alu_result = static_cast<riscv::u64>(r);
-                break;
-            }
-            case riscv::InstructionKind::SLLIW:
-            case riscv::InstructionKind::SLLW: {
-                riscv::s32 r = static_cast<riscv::s32>(static_cast<riscv::s64>(rs1_val) << (alu_src2 & 0x1F));
-                alu_result = static_cast<riscv::u64>(r);
-                break;
-            }
-            case riscv::InstructionKind::SRLIW:
-            case riscv::InstructionKind::SRLW: {
-                riscv::u32 r = static_cast<riscv::u32>(rs1_val) >> (alu_src2 & 0x1F);
-                alu_result = static_cast<riscv::u64>(r);
-                break;
-            }
-            case riscv::InstructionKind::SRAIW:
-            case riscv::InstructionKind::SRAW: {
-                riscv::s32 r = static_cast<riscv::s32>(static_cast<riscv::s64>(rs1_val) >> (alu_src2 & 0x1F));
-                alu_result = static_cast<riscv::u64>(r);
-                break;
-            }
-            default:
-                alu_result = 0;
-                break;
-        }
-
-        std::cout << "\"alu_src1\":\"0x" << std::hex << rs1_val << std::dec << "\","
-                  << "\"alu_src2\":\"0x" << std::hex << alu_src2 << std::dec << "\","
-                  << "\"imm\":\"0x" << std::hex << static_cast<riscv::u64>(decode_instr.imm) << std::dec << "\","
-                  << "\"alu_result\":\"0x" << std::hex << alu_result << std::dec << "\",";
-    } else {
-        std::cout << "\"alu_src1\":\"0x0\",\"alu_src2\":\"0x0\",\"imm\":\"0x0\",\"alu_result\":\"0x0\",";
-    }
-
-    std::cout << "\"fu_type\":\"" << (if_id.valid ? riscv::to_string(decode_instr.kind) : "NONE") << "\","
-              << "\"branch_taken\":false,"
-              << "\"branch_target\":\"0x0\""
+    std::cout << ",\"id_ex\":{"
+              << "\"pc\":\"0x" << std::hex << (id_ex.valid ? id_ex.instr.pc : 0) << std::dec << "\","
+              << "\"inst\":" << (id_ex.valid ? id_ex.instr.raw : 0) << ","
+              << "\"src1_raddr\":" << id_ex_src1_raddr << ","
+              << "\"src1_rdata\":\"0x" << std::hex << (id_ex.valid ? id_ex.rs1_value : 0) << std::dec << "\","
+              << "\"src2_raddr\":" << id_ex_src2_raddr << ","
+              << "\"src2_rdata\":\"0x" << std::hex << (id_ex.valid ? id_ex.rs2_value : 0) << std::dec << "\","
+              << "\"imm\":\"0x" << std::hex << (id_ex.valid ? id_ex.instr.imm : 0) << std::dec << "\","
+              << "\"instruction\":\"" << (id_ex.valid ? riscv::to_string(id_ex_instr.kind) : "NONE") << "\""
               << "}";
 
-    bool mem_valid = ex_mem.valid && (ex_mem.instr.is_load() || ex_mem.instr.is_store());
-    std::cout << ",\"memory\":{"
+    std::cout << ",\"execute\":{"
+              << "\"pc\":\"0x" << std::hex << (id_ex.valid ? id_ex.instr.pc : 0) << std::dec << "\","
+              << "\"valid\":" << (id_ex.valid ? "true" : "false") << ","
+              << "\"alu_src1\":\"0x" << std::hex << (id_ex.valid ? id_ex.rs1_value : 0) << std::dec << "\","
+              << "\"alu_src2\":\"0x" << std::hex << (id_ex.valid ? id_ex.rs2_value : 0) << std::dec << "\","
+              << "\"alu_result\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.alu_result : 0) << std::dec << "\","
+              << "\"fu_type\":\"" << (id_ex.valid ? riscv::to_string(id_ex_instr.kind) : "NONE") << "\""
+              << "}";
+
+    std::cout << ",\"ex_mem\":{"
               << "\"pc\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.instr.pc : 0) << std::dec << "\","
               << "\"valid\":" << (ex_mem.valid ? "true" : "false") << ","
-              << "\"mem_addr\":\"0x" << std::hex << (mem_valid ? ex_mem.alu_result : 0) << std::dec << "\","
+              << "\"inst\":" << (ex_mem.valid ? ex_mem.instr.raw : 0) << ","
+              << "\"alu_result\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.alu_result : 0) << std::dec << "\","
+              << "\"branch_taken\":" << (ex_mem.valid ? (ex_mem.branch_taken ? "true" : "false") : "false") << ","
+              << "\"branch_target\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.branch_target : 0) << std::dec << "\","
+              << "\"mem_addr\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.alu_result : 0) << std::dec << "\","
               << "\"mem_wen\":" << (ex_mem.valid && ex_mem.instr.is_store() ? "true" : "false") << ","
               << "\"mem_ren\":" << (ex_mem.valid && ex_mem.instr.is_load() ? "true" : "false") << ","
+              << "\"mem_wdata\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.rs2_value : 0) << std::dec << "\","
               << "\"info\":\"" << (ex_mem.valid ? riscv::to_string(ex_mem.instr.kind) : "NONE") << "\""
+              << "}";
+
+    std::cout << ",\"mem_wb\":{"
+              << "\"pc\":\"0x" << std::hex << (mem_wb.valid ? mem_wb.instr.pc : 0) << std::dec << "\","
+              << "\"valid\":" << (mem_wb.valid ? "true" : "false") << ","
+              << "\"inst\":" << (mem_wb.valid ? mem_wb.instr.raw : 0) << ","
+              << "\"wb_value\":\"0x" << std::hex << (mem_wb.valid ? mem_wb.wb_value : 0) << std::dec << "\","
+              << "\"rf_wen\":" << (mem_wb.valid && mem_wb.instr.writes_rd() ? "true" : "false") << ","
+              << "\"rf_waddr\":" << (mem_wb.valid ? mem_wb.instr.rd : 0) << ","
+              << "\"info\":\"" << (mem_wb.valid ? riscv::to_string(mem_wb.instr.kind) : "NONE") << "\""
               << "}";
 
     std::cout << ",\"writeback\":{"
@@ -618,16 +514,14 @@ void output_signals_body(riscv::RISCVSimulator& sim) {
               << "\"debug_wb_rf_wdata\":\"0x" << std::hex << (mem_wb.valid ? mem_wb.wb_value : 0) << std::dec << "\""
               << "}";
 
-    riscv::u32 wb_waddr = mem_wb.valid && mem_wb.instr.writes_rd() ? mem_wb.instr.rd : 0;
-    riscv::u64 wb_wdata = mem_wb.valid ? mem_wb.wb_value : 0;
     std::cout << ",\"regfile\":{"
-              << "\"src1_raddr\":" << src1_raddr << ","
-              << "\"src1_rdata\":\"0x" << std::hex << sim.registers().read(src1_raddr) << std::dec << "\","
-              << "\"src2_raddr\":" << src2_raddr << ","
-              << "\"src2_rdata\":\"0x" << std::hex << sim.registers().read(src2_raddr) << std::dec << "\","
+              << "\"src1_raddr\":" << id_ex_src1_raddr << ","
+              << "\"src1_rdata\":\"0x" << std::hex << (id_ex.valid ? id_ex.rs1_value : 0) << std::dec << "\","
+              << "\"src2_raddr\":" << id_ex_src2_raddr << ","
+              << "\"src2_rdata\":\"0x" << std::hex << (id_ex.valid ? id_ex.rs2_value : 0) << std::dec << "\","
               << "\"reg_wen\":" << (mem_wb.valid && mem_wb.instr.writes_rd() ? "true" : "false") << ","
-              << "\"reg_waddr\":" << wb_waddr << ","
-              << "\"reg_wdata\":\"0x" << std::hex << wb_wdata << std::dec << "\""
+              << "\"reg_waddr\":" << (mem_wb.valid ? mem_wb.instr.rd : 0) << ","
+              << "\"reg_wdata\":\"0x" << std::hex << (mem_wb.valid ? mem_wb.wb_value : 0) << std::dec << "\""
               << "}";
 
     bool datamem_en = ex_mem.valid && (ex_mem.instr.is_load() || ex_mem.instr.is_store());

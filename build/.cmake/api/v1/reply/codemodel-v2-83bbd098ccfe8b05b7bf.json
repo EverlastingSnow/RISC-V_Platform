@@ -6,7 +6,7 @@
 			[
 				{
 					"build" : ".",
-					"jsonFile" : "directory-.-d0094a50bb2071803777.json",
+					"jsonFile" : "directory-.-Release-d0094a50bb2071803777.json",
 					"minimumCMakeVersion" : 
 					{
 						"string" : "3.20"
@@ -18,12 +18,11 @@
 						0,
 						1,
 						2,
-						3,
-						4
+						3
 					]
 				}
 			],
-			"name" : "",
+			"name" : "Release",
 			"projects" : 
 			[
 				{
@@ -37,8 +36,7 @@
 						0,
 						1,
 						2,
-						3,
-						4
+						3
 					]
 				}
 			],
@@ -47,35 +45,28 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "riscv_core::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-riscv_core-fd0d662f1abf81937ad3.json",
+					"jsonFile" : "target-riscv_core-Release-738752339e60247a9fc1.json",
 					"name" : "riscv_core",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
-					"id" : "riscv_instr_tests::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-riscv_instr_tests-002eb314733c4ee0cdb0.json",
-					"name" : "riscv_instr_tests",
-					"projectIndex" : 0
-				},
-				{
-					"directoryIndex" : 0,
 					"id" : "riscv_sim::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-riscv_sim-df72f90d3032f825aad1.json",
+					"jsonFile" : "target-riscv_sim-Release-2cd03221f99155e6388d.json",
 					"name" : "riscv_sim",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
 					"id" : "riscv_sim_server::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-riscv_sim_server-5dd22ae2e0359aedffe9.json",
+					"jsonFile" : "target-riscv_sim_server-Release-0125397f6aca5365a54d.json",
 					"name" : "riscv_sim_server",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
 					"id" : "run_riscv_tests::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-run_riscv_tests-40db32890cee3d043866.json",
+					"jsonFile" : "target-run_riscv_tests-Release-479b01e754bc842852f2.json",
 					"name" : "run_riscv_tests",
 					"projectIndex" : 0
 				}
