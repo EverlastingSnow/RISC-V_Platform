@@ -127,6 +127,7 @@ struct DecodedInstruction {
 
 DecodedInstruction decode(u32 raw, u64 pc);
 std::string to_string(InstructionKind kind);
+std::string to_asm_string(const DecodedInstruction& instr);
 
 }  // namespace riscv
 

@@ -475,10 +475,13 @@ std::string to_string(InstructionKind kind) {
         case InstructionKind::OR: return "OR";
         case InstructionKind::AND: return "AND";
         case InstructionKind::FENCE: return "FENCE";
-        case InstructionKind::FENCE_I: return "FENCE.I";
+        case InstructionKind::FENCE_I: return "FENCE_I";
         case InstructionKind::ECALL: return "ECALL";
         case InstructionKind::EBREAK: return "EBREAK";
         case InstructionKind::MRET: return "MRET";
+        case InstructionKind::SRET: return "SRET";
+        case InstructionKind::WFI: return "WFI";
+        case InstructionKind::SFENCE_VMA: return "SFENCE_VMA";
         case InstructionKind::ADDIW: return "ADDIW";
         case InstructionKind::SLLIW: return "SLLIW";
         case InstructionKind::SRLIW: return "SRLIW";
@@ -510,6 +513,51 @@ std::string to_string(InstructionKind kind) {
         case InstructionKind::INVALID: return "INVALID";
         default: return "UNKNOWN";
     }
+}
+
+std::string to_asm_string(const DecodedInstruction& instr) {
+    if (!instr.is_valid()) {
+        return "INVALID";
+    }
+
+    std::string name = to_string(instr.kind);
+    char buf[128];
+
+    switch (instr.format) {
+        case InstructionFormat::R:
+            if (instr.rs2 != 0) {
+                snprintf(buf, sizeof(buf), "%s x%d, x%d, x%d", name.c_str(), instr.rd, instr.rs1, instr.rs2);
+            } else {
+                snprintf(buf, sizeof(buf), "%s x%d, x%d, x%d", name.c_str(), instr.rd, instr.rs1, instr.rs2);
+            }
+            break;
+        case InstructionFormat::I:
+            if (instr.is_load() || instr.is_jump() || instr.kind == InstructionKind::JALR) {
+                snprintf(buf, sizeof(buf), "%s x%d, %lld(x%d)", name.c_str(), instr.rd, (long long)instr.imm, instr.rs1);
+            } else if (instr.is_csr()) {
+                snprintf(buf, sizeof(buf), "%s x%d, %d, x%d", name.c_str(), instr.rd, (int)instr.imm, instr.rs1);
+            } else {
+                snprintf(buf, sizeof(buf), "%s x%d, x%d, %lld", name.c_str(), instr.rd, instr.rs1, (long long)instr.imm);
+            }
+            break;
+        case InstructionFormat::S:
+            snprintf(buf, sizeof(buf), "%s x%d, %lld(x%d)", name.c_str(), instr.rs2, (long long)instr.imm, instr.rs1);
+            break;
+        case InstructionFormat::B:
+            snprintf(buf, sizeof(buf), "%s x%d, x%d, %lld", name.c_str(), instr.rs1, instr.rs2, (long long)instr.imm);
+            break;
+        case InstructionFormat::U:
+            snprintf(buf, sizeof(buf), "%s x%d, 0x%llx", name.c_str(), instr.rd, (unsigned long long)((instr.imm >> 12) & 0xFFFFF));
+            break;
+        case InstructionFormat::J:
+            snprintf(buf, sizeof(buf), "%s x%d, %lld", name.c_str(), instr.rd, (long long)instr.imm);
+            break;
+        default:
+            snprintf(buf, sizeof(buf), "%s", name.c_str());
+            break;
+    }
+
+    return std::string(buf);
 }
 
 }  // namespace riscv

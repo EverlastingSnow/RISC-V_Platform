@@ -207,4 +207,24 @@ CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.obj: \
  F:/msys64/ucrt64/include/c++/15.1.0/array \
  E:/platform/RISC-V_Platform/include/riscv/elf_loader.h \
  E:/platform/RISC-V_Platform/include/riscv/teaching_tests.h \
- E:/platform/RISC-V_Platform/include/riscv/teaching_elf_config.h
+ E:/platform/RISC-V_Platform/include/riscv/teaching_elf_config.h \
+ E:/platform/RISC-V_Platform/include/riscv/riscv_config.h \
+ F:/msys64/ucrt64/include/c++/15.1.0/filesystem \
+ F:/msys64/ucrt64/include/c++/15.1.0/bits/fs_fwd.h \
+ F:/msys64/ucrt64/include/c++/15.1.0/bits/chrono.h \
+ F:/msys64/ucrt64/include/c++/15.1.0/ratio \
+ F:/msys64/ucrt64/include/c++/15.1.0/limits \
+ F:/msys64/ucrt64/include/c++/15.1.0/ctime \
+ F:/msys64/ucrt64/include/c++/15.1.0/bits/parse_numbers.h \
+ F:/msys64/ucrt64/include/c++/15.1.0/bits/fs_path.h \
+ F:/msys64/ucrt64/include/c++/15.1.0/locale \
+ F:/msys64/ucrt64/include/c++/15.1.0/bits/locale_facets_nonio.h \
+ F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/time_members.h \
+ F:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32/bits/messages_members.h \
+ F:/msys64/ucrt64/include/c++/15.1.0/bits/locale_facets_nonio.tcc \
+ F:/msys64/ucrt64/include/c++/15.1.0/bits/locale_conv.h \
+ F:/msys64/ucrt64/include/c++/15.1.0/iomanip \
+ F:/msys64/ucrt64/include/c++/15.1.0/bits/quoted_string.h \
+ F:/msys64/ucrt64/include/c++/15.1.0/codecvt \
+ F:/msys64/ucrt64/include/c++/15.1.0/bits/fs_dir.h \
+ F:/msys64/ucrt64/include/c++/15.1.0/bits/fs_ops.h

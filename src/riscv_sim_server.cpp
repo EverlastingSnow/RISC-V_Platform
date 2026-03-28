@@ -444,12 +444,14 @@ void output_signals_body(riscv::RISCVSimulator& sim) {
               << ",\"pc\":\"0x" << std::hex << sim.pc() << std::dec << "\"";
 
     auto if_id_instr = if_id.valid ? riscv::decode(if_id.inst, if_id.pc) : riscv::DecodedInstruction{};
+    std::string if_id_asm = if_id.valid ? riscv::to_asm_string(if_id_instr) : "NOP";
 
     std::cout << ",\"if_id\":{"
               << "\"pc\":\"0x" << std::hex << if_id.pc << std::dec << "\","
               << "\"valid\":" << (if_id.valid ? "true" : "false") << ","
               << "\"inst\":" << if_id.inst << ","
               << "\"instruction\":\"" << (if_id.valid ? riscv::to_string(if_id_instr.kind) : "NONE") << "\","
+              << "\"asm\":\"" << if_id_asm << "\","
               << "\"target\":\"0x" << std::hex << sim.redirect_target() << std::dec << "\","
               << "\"taken\":" << (sim.redirect() ? "true" : "false") << ","
               << "\"PC_next\":\"0x" << std::hex << sim.next_pc() << std::dec << "\","
@@ -457,6 +459,7 @@ void output_signals_body(riscv::RISCVSimulator& sim) {
               << "}";
 
     auto id_ex_instr = id_ex.valid ? riscv::decode(id_ex.instr.raw, id_ex.instr.pc) : riscv::DecodedInstruction{};
+    std::string id_ex_asm = id_ex.valid ? riscv::to_asm_string(id_ex_instr) : "NOP";
     riscv::u32 id_ex_src1_raddr = id_ex.valid && uses_rs1(id_ex_instr.kind) ? id_ex_instr.rs1 : 0;
     riscv::u32 id_ex_src2_raddr = id_ex.valid && uses_rs2(id_ex_instr.kind) ? id_ex_instr.rs2 : 0;
 
@@ -468,8 +471,12 @@ void output_signals_body(riscv::RISCVSimulator& sim) {
               << "\"src2_raddr\":" << id_ex_src2_raddr << ","
               << "\"src2_rdata\":\"0x" << std::hex << (id_ex.valid ? id_ex.rs2_value : 0) << std::dec << "\","
               << "\"imm\":\"0x" << std::hex << (id_ex.valid ? id_ex.instr.imm : 0) << std::dec << "\","
-              << "\"instruction\":\"" << (id_ex.valid ? riscv::to_string(id_ex_instr.kind) : "NONE") << "\""
+              << "\"instruction\":\"" << (id_ex.valid ? riscv::to_string(id_ex_instr.kind) : "NONE") << "\","
+              << "\"asm\":\"" << id_ex_asm << "\""
               << "}";
+
+    auto ex_mem_instr = ex_mem.valid ? riscv::decode(ex_mem.instr.raw, ex_mem.instr.pc) : riscv::DecodedInstruction{};
+    std::string ex_mem_asm = ex_mem.valid ? riscv::to_asm_string(ex_mem_instr) : "NOP";
 
     std::cout << ",\"execute\":{"
               << "\"pc\":\"0x" << std::hex << (id_ex.valid ? id_ex.instr.pc : 0) << std::dec << "\","
@@ -477,13 +484,16 @@ void output_signals_body(riscv::RISCVSimulator& sim) {
               << "\"alu_src1\":\"0x" << std::hex << (id_ex.valid ? id_ex.rs1_value : 0) << std::dec << "\","
               << "\"alu_src2\":\"0x" << std::hex << (id_ex.valid ? id_ex.rs2_value : 0) << std::dec << "\","
               << "\"alu_result\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.alu_result : 0) << std::dec << "\","
-              << "\"fu_type\":\"" << (id_ex.valid ? riscv::to_string(id_ex_instr.kind) : "NONE") << "\""
+              << "\"fu_type\":\"" << (id_ex.valid ? riscv::to_string(id_ex_instr.kind) : "NONE") << "\","
+              << "\"asm\":\"" << id_ex_asm << "\""
               << "}";
 
     std::cout << ",\"ex_mem\":{"
               << "\"pc\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.instr.pc : 0) << std::dec << "\","
               << "\"valid\":" << (ex_mem.valid ? "true" : "false") << ","
               << "\"inst\":" << (ex_mem.valid ? ex_mem.instr.raw : 0) << ","
+              << "\"instruction\":\"" << (ex_mem.valid ? riscv::to_string(ex_mem_instr.kind) : "NONE") << "\","
+              << "\"asm\":\"" << ex_mem_asm << "\","
               << "\"alu_result\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.alu_result : 0) << std::dec << "\","
               << "\"branch_taken\":" << (ex_mem.valid ? (ex_mem.branch_taken ? "true" : "false") : "false") << ","
               << "\"branch_target\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.branch_target : 0) << std::dec << "\","
@@ -494,19 +504,26 @@ void output_signals_body(riscv::RISCVSimulator& sim) {
               << "\"info\":\"" << (ex_mem.valid ? riscv::to_string(ex_mem.instr.kind) : "NONE") << "\""
               << "}";
 
+    auto mem_wb_instr = mem_wb.valid ? riscv::decode(mem_wb.instr.raw, mem_wb.instr.pc) : riscv::DecodedInstruction{};
+    std::string mem_wb_asm = mem_wb.valid ? riscv::to_asm_string(mem_wb_instr) : "NOP";
+
     std::cout << ",\"mem_wb\":{"
               << "\"pc\":\"0x" << std::hex << (mem_wb.valid ? mem_wb.instr.pc : 0) << std::dec << "\","
               << "\"valid\":" << (mem_wb.valid ? "true" : "false") << ","
               << "\"inst\":" << (mem_wb.valid ? mem_wb.instr.raw : 0) << ","
+              << "\"instruction\":\"" << (mem_wb.valid ? riscv::to_string(mem_wb_instr.kind) : "NONE") << "\","
+              << "\"asm\":\"" << mem_wb_asm << "\","
               << "\"wb_value\":\"0x" << std::hex << (mem_wb.valid ? mem_wb.wb_value : 0) << std::dec << "\","
               << "\"rf_wen\":" << (mem_wb.valid && mem_wb.instr.writes_rd() ? "true" : "false") << ","
               << "\"rf_waddr\":" << (mem_wb.valid ? mem_wb.instr.rd : 0) << ","
-              << "\"info\":\"" << (mem_wb.valid ? riscv::to_string(mem_wb.instr.kind) : "NONE") << "\""
+              << "\"info\":\"" << (mem_wb.valid ? riscv::to_string(mem_wb_instr.kind) : "NONE") << "\""
               << "}";
 
     std::cout << ",\"writeback\":{"
               << "\"pc\":\"0x" << std::hex << (mem_wb.valid ? mem_wb.instr.pc : 0) << std::dec << "\","
               << "\"valid\":" << (mem_wb.valid ? "true" : "false") << ","
+              << "\"instruction\":\"" << (mem_wb.valid ? riscv::to_string(mem_wb_instr.kind) : "NONE") << "\","
+              << "\"asm\":\"" << mem_wb_asm << "\","
               << "\"debug_commit\":" << (mem_wb.valid ? "true" : "false") << ","
               << "\"debug_pc\":\"0x" << std::hex << (mem_wb.valid ? mem_wb.instr.pc : 0) << std::dec << "\","
               << "\"debug_wb_rf_wen\":" << (mem_wb.valid && mem_wb.instr.writes_rd() ? "true" : "false") << ","
@@ -780,24 +797,12 @@ int main() {
                     
                     // Check WB stage for diff
                     check_wb_diff(sim.get());
-
-                    // Check if simulation halted due to ecall
-                    if (sim->halted() && sim->halt_reason_ecall()) {
-                        std::cout << "{\"type\":\"halted\",\"reason\":\"ecall\",\"pc\":\"0x" << std::hex << sim->pc() << std::dec << "\"}" << std::endl;
-                    } else {
-                        output_signals(*sim);
-                    }
+                    output_signals(*sim);
                 }
             } else {
                 // Normal mode without difftest
                 sim->step();
-                
-                // Check if simulation halted due to ecall
-                if (sim->halted() && sim->halt_reason_ecall()) {
-                    std::cout << "{\"type\":\"halted\",\"reason\":\"ecall\",\"pc\":\"0x" << std::hex << sim->pc() << std::dec << "\"}" << std::endl;
-                } else {
-                    output_signals(*sim);
-                }
+                output_signals(*sim);
             }
 
         } else if (cmd == "run") {
@@ -975,6 +980,50 @@ int main() {
             g_difftest.diff_detected = false;
             g_difftest.waiting_for_input = false;
             std::cout << "{\"status\":\"ok\",\"message\":\"Continuing\"}" << std::endl;
+
+        } else if (cmd == "load_elf_binary") {
+            std::string hex_str;
+            std::getline(iss, hex_str);
+            while (!hex_str.empty() && hex_str[0] == ' ') hex_str.erase(hex_str.begin());
+
+            std::vector<riscv::u8> binary;
+            try {
+                for (size_t i = 0; i < hex_str.length(); i += 2) {
+                    while (i < hex_str.length() && hex_str[i] == ' ') i++;
+                    if (i + 2 <= hex_str.length()) {
+                        unsigned int byte;
+                        std::stringstream ss;
+                        ss << std::hex << hex_str.substr(i, 2);
+                        ss >> byte;
+                        binary.push_back(static_cast<riscv::u8>(byte));
+                    }
+                }
+            } catch (...) {
+                std::cout << "{\"status\":\"error\",\"message\":\"Failed to parse binary data\"}" << std::endl;
+                continue;
+            }
+
+            if (binary.empty()) {
+                std::cout << "{\"status\":\"error\",\"message\":\"Empty binary data\"}" << std::endl;
+                continue;
+            }
+
+            sim = std::make_unique<riscv::RISCVSimulator>();
+            sim->load_program(binary, 0x80000000ULL);
+
+            if (g_difftest.shadow_mode) {
+                g_difftest.shadow_sim = std::make_unique<riscv::RISCVSimulator>();
+                g_difftest.shadow_sim->load_program(binary, 0x80000000ULL);
+            }
+
+            g_difftest.diff_detected = false;
+            g_difftest.waiting_for_input = false;
+            g_difftest.user_signals.clear();
+
+            std::cout << "{\"status\":\"ok\",\"message\":\"Loaded ELF binary\",\"binary_size\":" << binary.size() << ",";
+            output_signals_body(*sim);
+            std::cout << "}" << std::endl;
+            std::cout.flush();
 
         } else if (cmd == "quit") {
             break;

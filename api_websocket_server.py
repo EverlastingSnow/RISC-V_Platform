@@ -9,11 +9,14 @@ from typing import Optional, Dict, Any
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
+import config
 import stats
-print(f"[STATS] stats module imported successfully. File: {stats.__file__}")
 
-PORT = 8081
-SIM_SERVER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "build", "riscv_sim_server.exe")
+print(f"[STATS] stats module imported successfully. File: {stats.__file__}")
+print(f"[CONFIG] config loaded from: {config.__file__}")
+
+PORT = config.WEBSOCKET_PORT
+SIM_SERVER_PATH = config.SIM_SERVER_PATH
 
 
 class CppSimulator:
@@ -177,8 +180,19 @@ class CppSimulator:
 class StatsHTTPHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         print(f"[STATS] HTTP GET request: {self.path}")
-        if self.path == "/api/stats":
-            data = stats.get_stats()
+        if self.path.startswith("/api/stats"):
+            import urllib.parse
+            parsed = urllib.parse.urlparse(self.path)
+            params = urllib.parse.parse_qs(parsed.query)
+
+            start_date = params.get("start", [None])[0]
+            end_date = params.get("end", [None])[0]
+
+            if start_date or end_date:
+                data = stats.get_daily_stats(start_date, end_date)
+            else:
+                data = stats.get_stats()
+
             print(f"[STATS] Returning stats: {data}")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -231,7 +245,7 @@ class WebSocketServer:
         self._start_http_server()
 
     def _start_http_server(self):
-        HTTP_PORT = 8082
+        HTTP_PORT = config.STATS_PORT
         try:
             server = StatsHTTPServer(HTTP_PORT, self)
             thread = threading.Thread(target=server.serve_forever)
@@ -522,6 +536,45 @@ class WebSocketServer:
                                 response = {'status': 'error', 'message': f'Failed to load ELF test {test_name}'}
                             await websocket.send(json.dumps(response))
 
+                        elif command == 'load_elf_binary':
+                            elf_base64 = data.get('elf_data', '')
+                            if not elf_base64:
+                                response = {'status': 'error', 'message': 'No ELF data provided'}
+                                await websocket.send(json.dumps(response))
+                            else:
+                                import base64
+                                import tempfile
+                                import os
+                                try:
+                                    elf_bytes = base64.b64decode(elf_base64)
+                                    print(f"[DEBUG] ELF decoded, size: {len(elf_bytes)} bytes")
+                                    print(f"[DEBUG] ELF header: {elf_bytes[:16].hex()}")
+                                    temp_elf = tempfile.NamedTemporaryFile(delete=False, suffix='.elf')
+                                    temp_elf.write(elf_bytes)
+                                    temp_elf.close()
+                                    print(f"[DEBUG] ELF saved to: {temp_elf.name}")
+                                    cmd = f'load {temp_elf.name}'
+                                    print(f"[DEBUG] Sending load command: {cmd}")
+                                    result = self.sim.send_command(cmd)
+                                    print(f"[DEBUG] load result: {result}")
+                                    os.unlink(temp_elf.name)
+                                    if result:
+                                        try:
+                                            resp_data = json.loads(result)
+                                            if resp_data.get('status') == 'ok':
+                                                signals = self.sim.get_signals()
+                                                response = {'status': 'ok', 'message': 'Loaded ELF binary', 'signals': signals}
+                                            else:
+                                                response = resp_data
+                                        except Exception as e:
+                                            print(f"[DEBUG] parse error: {e}")
+                                            response = {'status': 'ok', 'message': 'Loaded ELF binary'}
+                                    else:
+                                        response = {'status': 'error', 'message': 'Failed to load ELF - no response'}
+                                except Exception as e:
+                                    response = {'status': 'error', 'message': f'Failed to decode ELF: {str(e)}'}
+                                await websocket.send(json.dumps(response))
+
                         elif command == 'get_registers':
                             if not self.sim:
                                 response = {'status': 'error', 'message': 'Simulator not initialized'}
@@ -551,6 +604,7 @@ class WebSocketServer:
                 duration = int(time.time() - start_time)
                 if duration > 0:
                     stats.add_duration(duration)
+                    stats.flush_all()
                     print(f"[STATS] Client disconnected. Duration: {duration}s. Current: {stats.get_stats()}")
 
     async def start(self):

@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include "riscv_config.h"
 
 namespace riscv {
 
@@ -32,8 +33,7 @@ public:
     }
 
     static const std::string& get_elf_base_path() {
-        static const std::string base_path = "e:/platform/RISC-V_Platform/teaching/";
-        return base_path;
+        return Config::get_teaching_dir();
     }
 
 private:
@@ -45,35 +45,35 @@ inline const std::vector<TeachingElfTest> TeachingElfConfig::s_elf_tests = {
         "teaching_regwrite",
         "RegWrite基础测试",
         "RegWrite信号基础：区分哪些指令写寄存器，哪些不写",
-        "e:/platform/RISC-V_Platform/teaching/teaching_regwrite.elf",
+        Config::get_teaching_dir() + "/teaching_regwrite.elf",
         "scenario1"
     },
     {
         "teaching_alusrc",
         "ALUSrc操作数选择",
         "ALUSrc信号：理解ALU操作数选择（立即数vs寄存器）",
-        "e:/platform/RISC-V_Platform/teaching/teaching_alusrc.elf",
+        Config::get_teaching_dir() + "/teaching_alusrc.elf",
         "scenario2"
     },
     {
         "teaching_mem",
         "内存访问控制",
         "MemRead/MemWrite信号：理解内存读写操作",
-        "e:/platform/RISC-V_Platform/teaching/teaching_mem.elf",
+        Config::get_teaching_dir() + "/teaching_mem.elf",
         "scenario3"
     },
     {
         "teaching_branch",
         "分支控制",
         "Branch信号：理解分支跳转对流水线的影响",
-        "e:/platform/RISC-V_Platform/teaching/teaching_branch.elf",
+        Config::get_teaching_dir() + "/teaching_branch.elf",
         "scenario4"
     },
     {
         "teaching_pipeline",
         "流水线综合",
         "流水线综合：展示典型流水线执行序列",
-        "e:/platform/RISC-V_Platform/teaching/teaching_pipeline.elf",
+        Config::get_teaching_dir() + "/teaching_pipeline.elf",
         "all"
     }
 };

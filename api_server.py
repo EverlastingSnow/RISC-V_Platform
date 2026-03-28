@@ -4,7 +4,9 @@ import json
 import subprocess
 import os
 
-PORT = 8080
+import config
+
+PORT = config.API_SERVER_PORT
 
 class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):

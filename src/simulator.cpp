@@ -770,30 +770,17 @@ void RISCVSimulator::stage_ex() {
             break;
         }
         case InstructionKind::ECALL:
+            halted_ = true;
+            halt_reason_ = HaltReason::Ecall;
+            halt_pc_ = instr.pc;
+            halt_inst_ = instr.raw;
+            alu_result = 0;
+            break;
         case InstructionKind::EBREAK:
-            // EBREAK 应该触发断点异常，而不是直接停机
-            // 设置异常相关 CSR
-            if (instr.kind == InstructionKind::EBREAK) {
-                csr_.write(CSR_MEPC, instr.pc);  // mepc = ebreak 指令地址
-                csr_.write(CSR_MCAUSE, 3);        // mcause = 3 (Breakpoint)
-                csr_.write(CSR_MTVAL, 0);         // mtval = 0
-                
-                // 更新 mstatus: MPIE = MIE, MIE = 0
-                u64 mstatus = csr_.read(CSR_MSTATUS);
-                constexpr u64 MSTATUS_MIE = 1ULL << 3;
-                constexpr u64 MSTATUS_MPIE = 1ULL << 7;
-                u64 old_mie = (mstatus & MSTATUS_MIE) ? 1 : 0;
-                mstatus = (mstatus & ~MSTATUS_MPIE) | (old_mie ? MSTATUS_MPIE : 0);
-                mstatus &= ~MSTATUS_MIE;
-                csr_.write(CSR_MSTATUS, mstatus);
-                
-                // 跳转到异常处理程序
-                u64 mtvec = csr_.read(CSR_MTVEC);
-                branch_taken = true;
-                branch_target = mtvec & ~0x3ULL;
-                flush_decode_ = true;
-                flush_execute_ = true;
-            }
+            pending_ebreak_ = true;
+            halt_reason_ = HaltReason::Ebreak;
+            halt_pc_ = instr.pc;
+            halt_inst_ = instr.raw;
             alu_result = 0;
             break;
         case InstructionKind::MRET: {
@@ -1032,7 +1019,12 @@ void RISCVSimulator::stage_wb() {
         last_wb_result.valid = false;
         return;
     }
-    
+
+    if (pending_ebreak_) {
+        halted_ = true;
+        pending_ebreak_ = false;
+    }
+
     // Record WB result before applying user signals
     last_wb_result.valid = mem_wb_.valid;
     last_wb_result.pc = mem_wb_.instr.pc;

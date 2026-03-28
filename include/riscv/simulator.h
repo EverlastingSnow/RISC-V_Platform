@@ -117,6 +117,7 @@ private:
     // Pause control
     bool waiting_for_input_{false};
     u64 waiting_pc_{0};
+    bool pending_ebreak_{false};
     bool waiting_handled_{false};
 };
 
