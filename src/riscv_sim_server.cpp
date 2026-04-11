@@ -22,6 +22,8 @@ namespace {
 
 std::atomic<bool> g_running{true};
 std::string g_current_elf_path;
+std::vector<std::uint8_t> g_current_binary;
+std::uint64_t g_current_load_offset{0};
 
 struct DiffTestConfig {
     bool enabled{false};
@@ -216,6 +218,11 @@ bool get_default_signal(const riscv::DecodedInstruction& instr, const std::strin
 }
 
 bool is_signal_relevant(const riscv::DecodedInstruction& instr, const std::string& signal_name) {
+    // Skip INVALID instructions - they should not require any signal input
+    if (instr.kind == riscv::InstructionKind::INVALID) {
+        return false;
+    }
+
     // ECALL and EBREAK are special - they halt the processor, don't require signal input
     if (instr.kind == riscv::InstructionKind::ECALL || instr.kind == riscv::InstructionKind::EBREAK) {
         return false;
@@ -610,9 +617,15 @@ int main() {
             sim = std::make_unique<riscv::RISCVSimulator>();
             sim->load_program(result.binary, result.load_offset);
             g_current_elf_path = filepath;
+            g_current_binary = result.binary;
+            g_current_load_offset = result.load_offset;
             
+            // Update shadow_sim if difftest is enabled (either shadow mode or user input mode)
             if (g_difftest.shadow_mode) {
                 g_difftest.shadow_sim = std::make_unique<riscv::RISCVSimulator>();
+                g_difftest.shadow_sim->load_program(result.binary, result.load_offset);
+            } else if (g_difftest.enabled && g_difftest.shadow_sim) {
+                // User input mode: reload shadow_sim with new binary
                 g_difftest.shadow_sim->load_program(result.binary, result.load_offset);
             }
             
@@ -648,8 +661,15 @@ int main() {
             sim = std::make_unique<riscv::RISCVSimulator>();
             sim->load_program(binary, 0x80000000ULL);
 
+            g_current_binary = binary;
+            g_current_load_offset = 0x80000000ULL;
+
+            // Update shadow_sim if difftest is enabled (either shadow mode or user input mode)
             if (g_difftest.shadow_mode) {
                 g_difftest.shadow_sim = std::make_unique<riscv::RISCVSimulator>();
+                g_difftest.shadow_sim->load_program(binary, 0x80000000ULL);
+            } else if (g_difftest.enabled && g_difftest.shadow_sim) {
+                // User input mode: reload shadow_sim with new binary
                 g_difftest.shadow_sim->load_program(binary, 0x80000000ULL);
             }
 
@@ -660,6 +680,7 @@ int main() {
                       << "\",\"testInfo\":{\"name\":\"" << escape_json(test->name)
                       << "\",\"description\":\"" << escape_json(test->description)
                       << "\",\"scenario\":\"" << escape_json(test->scenario) << "\"}}" << std::endl;
+            std::cout.flush();
 
         } else if (cmd == "list_tests") {
             std::string scenario_filter;
@@ -679,6 +700,7 @@ int main() {
                 first = false;
             }
             std::cout << "]}";
+            std::cout.flush();
 
         } else if (cmd == "load_elf_test") {
             std::string test_name;
@@ -696,9 +718,15 @@ int main() {
                     sim = std::make_unique<riscv::RISCVSimulator>();
                     sim->load_program(result.binary, result.load_offset);
                     g_current_elf_path = test.elf_path;
+                    g_current_binary = result.binary;
+                    g_current_load_offset = result.load_offset;
 
+                    // Update shadow_sim if difftest is enabled (either shadow mode or user input mode)
                     if (g_difftest.shadow_mode) {
                         g_difftest.shadow_sim = std::make_unique<riscv::RISCVSimulator>();
+                        g_difftest.shadow_sim->load_program(result.binary, result.load_offset);
+                    } else if (g_difftest.enabled && g_difftest.shadow_sim) {
+                        // User input mode: reload shadow_sim with new binary
                         g_difftest.shadow_sim->load_program(result.binary, result.load_offset);
                     }
 
@@ -711,6 +739,7 @@ int main() {
                               << "\",\"description\":\"" << escape_json(test.description)
                               << "\",\"scenario\":\"" << escape_json(test.scenario)
                               << "\",\"elfPath\":\"" << escape_json(test.elf_path) << "\"}}" << std::endl;
+                    std::cout.flush();
                     found = true;
                     break;
                 }
@@ -718,6 +747,7 @@ int main() {
 
             if (!found) {
                 std::cout << "{\"status\":\"error\",\"message\":\"ELF test not found: " << escape_json(test_name) << "\"}" << std::endl;
+                std::cout.flush();
             }
 
         } else if (cmd == "list_elf_tests") {
@@ -739,26 +769,31 @@ int main() {
                 first = false;
             }
             std::cout << "]}";
+            std::cout.flush();
 
         } else if (cmd == "step") {
             if (!sim) {
                 std::cout << "{\"status\":\"error\",\"message\":\"No program loaded\"}" << std::endl;
+                std::cout.flush();
                 continue;
             }
             if (sim->halted()) {
                 std::cout << "{\"status\":\"error\",\"message\":\"Simulation halted\"}" << std::endl;
+                std::cout.flush();
                 continue;
             }
             
             // If waiting for input, don't step
             if (g_difftest.waiting_for_input) {
                 std::cout << "{\"status\":\"error\",\"message\":\"Waiting for signal input\"}" << std::endl;
+                std::cout.flush();
                 continue;
             }
-            
+
             // If diff detected, user needs to reset
             if (g_difftest.diff_detected) {
                 std::cout << "{\"status\":\"error\",\"message\":\"Diff detected, please reset\"}" << std::endl;
+                std::cout.flush();
                 continue;
             }
             
@@ -808,6 +843,7 @@ int main() {
         } else if (cmd == "run") {
             if (!sim) {
                 std::cout << "{\"status\":\"error\",\"message\":\"No program loaded\"}" << std::endl;
+                std::cout.flush();
                 continue;
             }
             while (g_running && !sim->halted()) {
@@ -836,10 +872,12 @@ int main() {
             g_difftest.user_result = DiffTestConfig::Result();
             g_difftest.shadow_sim.reset();
             std::cout << "{\"status\":\"ok\",\"message\":\"Reset\"}" << std::endl;
+            std::cout.flush();
 
         } else if (cmd == "signals") {
             if (!sim) {
                 std::cout << "{\"status\":\"error\",\"message\":\"No program loaded\"}" << std::endl;
+                std::cout.flush();
                 continue;
             }
             output_signals(*sim);
@@ -847,6 +885,7 @@ int main() {
         } else if (cmd == "registers") {
             if (!sim) {
                 std::cout << "{\"status\":\"error\",\"message\":\"No program loaded\"}" << std::endl;
+                std::cout.flush();
                 continue;
             }
             output_registers(*sim);
@@ -877,12 +916,13 @@ int main() {
             if (g_difftest.enabled) {
                 if (!sim) {
                     std::cout << "{\"status\":\"error\",\"message\":\"No program loaded\"}" << std::endl;
+                    std::cout.flush();
+                    continue;
                 } else {
-                    // Create shadow_sim for user input mode
+                    // Create shadow_sim for user input mode using saved binary
                     g_difftest.shadow_sim = std::make_unique<riscv::RISCVSimulator>();
-                    auto load_result = riscv::load_elf(g_current_elf_path);
-                    if (load_result.success) {
-                        g_difftest.shadow_sim->load_program(load_result.binary, load_result.load_offset);
+                    if (!g_current_binary.empty()) {
+                        g_difftest.shadow_sim->load_program(g_current_binary, g_current_load_offset);
                     }
                 }
             }
@@ -904,6 +944,7 @@ int main() {
             g_difftest.user_result = DiffTestConfig::Result();
             g_difftest.shadow_sim.reset();
             std::cout << "{\"status\":\"ok\",\"message\":\"Difftest disabled\"}" << std::endl;
+            std::cout.flush();
 
         } else if (cmd == "set_user_signal") {
             std::string signal_name, value_str;
@@ -939,23 +980,14 @@ int main() {
                         g_difftest.shadow_sim->set_waiting_for_input(false);
                     }
 
-                    // Step both simulators to let the instruction flow through pipeline
+                    // Step both simulators once to let the instruction flow through pipeline
                     sim->step();
                     if (g_difftest.shadow_sim) {
                         g_difftest.shadow_sim->step();
                     }
 
-                    // Check WB diff after first step
+                    // Check WB diff after the step
                     check_wb_diff(sim.get());
-
-                    // If no diff detected, step again to let the instruction reach WB stage
-                    if (!g_difftest.diff_detected) {
-                        sim->step();
-                        if (g_difftest.shadow_sim) {
-                            g_difftest.shadow_sim->step();
-                        }
-                        check_wb_diff(sim.get());
-                    }
 
                     // Clear user signals
                     g_difftest.user_signals.clear();
@@ -970,16 +1002,19 @@ int main() {
             }
             
             std::cout << "{\"status\":\"ok\",\"message\":\"User signal set: " << escape_json(signal_name) << "=" << (value ? "1" : "0") << "\"}" << std::endl;
+            std::cout.flush();
 
         } else if (cmd == "skip_signal_input") {
             g_difftest.waiting_for_input = false;
             g_difftest.user_signals.clear();
             std::cout << "{\"status\":\"ok\",\"message\":\"Signal input skipped\"}" << std::endl;
+            std::cout.flush();
 
         } else if (cmd == "continue") {
             g_difftest.diff_detected = false;
             g_difftest.waiting_for_input = false;
             std::cout << "{\"status\":\"ok\",\"message\":\"Continuing\"}" << std::endl;
+            std::cout.flush();
 
         } else if (cmd == "load_elf_binary") {
             std::string hex_str;
@@ -1000,19 +1035,25 @@ int main() {
                 }
             } catch (...) {
                 std::cout << "{\"status\":\"error\",\"message\":\"Failed to parse binary data\"}" << std::endl;
+                std::cout.flush();
                 continue;
             }
 
             if (binary.empty()) {
                 std::cout << "{\"status\":\"error\",\"message\":\"Empty binary data\"}" << std::endl;
+                std::cout.flush();
                 continue;
             }
 
             sim = std::make_unique<riscv::RISCVSimulator>();
             sim->load_program(binary, 0x80000000ULL);
 
+            // Update shadow_sim if difftest is enabled (either shadow mode or user input mode)
             if (g_difftest.shadow_mode) {
                 g_difftest.shadow_sim = std::make_unique<riscv::RISCVSimulator>();
+                g_difftest.shadow_sim->load_program(binary, 0x80000000ULL);
+            } else if (g_difftest.enabled && g_difftest.shadow_sim) {
+                // User input mode: reload shadow_sim with new binary
                 g_difftest.shadow_sim->load_program(binary, 0x80000000ULL);
             }
 
@@ -1030,9 +1071,11 @@ int main() {
 
         } else if (cmd == "ping") {
             std::cout << "{\"status\":\"ok\",\"message\":\"pong\"}" << std::endl;
+            std::cout.flush();
 
         } else {
             std::cout << "{\"status\":\"error\",\"message\":\"Unknown command: " << escape_json(cmd) << "\"}" << std::endl;
+            std::cout.flush();
         }
     }
 

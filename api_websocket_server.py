@@ -46,7 +46,7 @@ class CppSimulator:
             print(f"Error starting simulator: {e}")
             return False
 
-    def send_command(self, cmd: str) -> Optional[str]:
+    def send_command(self, cmd: str, expected_in_response: str = None) -> Optional[str]:
         if not self.process or self.process.stdin is None:
             return None
 
@@ -59,15 +59,16 @@ class CppSimulator:
                 print(f"[DEBUG] Write error: {e}, attempting to reconnect...")
                 return None
 
+            # Wait for response - read until we get a complete JSON starting with {
             buffer = ""
-            for _ in range(100):
+            for _ in range(200):
                 try:
                     line = self.process.stdout.readline()
                 except (OSError, IOError) as e:
                     print(f"[DEBUG] Read error: {e}")
                     break
                 if not line:
-                    time.sleep(0.05)
+                    time.sleep(0.01)
                     continue
                 if isinstance(line, bytes):
                     line = line.decode('utf-8', errors='replace')
@@ -78,9 +79,15 @@ class CppSimulator:
                     if stripped.startswith('[DEBUG'):
                         continue
                     buffer += stripped
-                    if stripped.startswith('{'):
+                    # Only consider it a valid response if it starts with {
+                    if buffer.startswith('{'):
                         brace_count = buffer.count('{') - buffer.count('}')
                         if brace_count == 0 and buffer.endswith('}'):
+                            # Got complete JSON, but verify it's for the right command
+                            if expected_in_response and expected_in_response not in buffer:
+                                print(f"[DEBUG] Response mismatch, expected '{expected_in_response}', got: {buffer[:100]}")
+                                # Continue reading for more
+                                continue
                             return buffer
             if buffer.startswith('{'):
                 return buffer
@@ -549,15 +556,17 @@ class WebSocketServer:
                                     elf_bytes = base64.b64decode(elf_base64)
                                     print(f"[DEBUG] ELF decoded, size: {len(elf_bytes)} bytes")
                                     print(f"[DEBUG] ELF header: {elf_bytes[:16].hex()}")
+                                    # Create temp file with delete=False so it won't be auto-deleted
+                                    # On Windows, we can't delete a file while it's still open by another process
                                     temp_elf = tempfile.NamedTemporaryFile(delete=False, suffix='.elf')
                                     temp_elf.write(elf_bytes)
-                                    temp_elf.close()
-                                    print(f"[DEBUG] ELF saved to: {temp_elf.name}")
-                                    cmd = f'load {temp_elf.name}'
+                                    temp_elf.close()  # Close immediately so C++ can read it
+                                    temp_elf_path = temp_elf.name
+                                    print(f"[DEBUG] ELF saved to: {temp_elf_path}")
+                                    cmd = f'load {temp_elf_path}'
                                     print(f"[DEBUG] Sending load command: {cmd}")
                                     result = self.sim.send_command(cmd)
                                     print(f"[DEBUG] load result: {result}")
-                                    os.unlink(temp_elf.name)
                                     if result:
                                         try:
                                             resp_data = json.loads(result)
