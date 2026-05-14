@@ -73,6 +73,7 @@ public:
         u64 wb_rdata{0};
         std::optional<bool> user_reg_write{std::nullopt};  // User's input for RegWrite
         bool actual_wb_en{false};    // Actual wb enable (after applying user signal)
+        bool has_user_signal{false}; // True if any user signal was set for this instruction
     };
     WBResult last_wb_result;
 

@@ -274,8 +274,8 @@ void check_wb_diff(riscv::RISCVSimulator* sim) {
     
     // Only compare if both have valid WB results
     if (!golden_wb.valid || !user_wb.valid) return;
-    // Compare if shadow (user) received user signals
-    if (!user_wb.user_reg_write.has_value()) return;  // No user input for this instruction
+    // Compare if shadow (user) received any user signals
+    if (!user_wb.has_user_signal) return;  // No user input for this instruction
     
     // Compare actual WB results
     if (golden_wb.actual_wb_en != user_wb.actual_wb_en ||
@@ -581,15 +581,21 @@ void output_signals_body(riscv::RISCVSimulator& sim) {
     }
 }
 
-void output_signals(riscv::RISCVSimulator& sim) {
+void output_signals(riscv::RISCVSimulator& sim, bool use_shadow = false) {
     std::cout << "{";
-    output_signals_body(sim);
+    if (use_shadow && g_difftest.shadow_sim) {
+        output_signals_body(*g_difftest.shadow_sim);
+    } else {
+        output_signals_body(sim);
+    }
     std::cout << "}" << std::endl;
     std::cout.flush();
 }
 
-void output_registers(riscv::RISCVSimulator& sim) {
-    const auto& regs = sim.registers().raw();
+void output_registers(riscv::RISCVSimulator& sim, bool use_shadow = false) {
+    const auto& regs = (use_shadow && g_difftest.shadow_sim) 
+                        ? g_difftest.shadow_sim->registers().raw() 
+                        : sim.registers().raw();
     std::cout << "{\"registers\":[";
     for (int i = 0; i < 32; ++i) {
         if (i > 0) std::cout << ",";
@@ -643,7 +649,11 @@ int main() {
             
             // Output signals with status - output as complete JSON on one line
             std::cout << "{\"status\":\"ok\",\"message\":\"Loaded " << escape_json(filepath) << "\",";
-            output_signals_body(*sim);
+            if (g_difftest.enabled && g_difftest.shadow_sim) {
+                output_signals_body(*g_difftest.shadow_sim);
+            } else {
+                output_signals_body(*sim);
+            }
             std::cout << "}" << std::endl;
             std::cout.flush();
 
@@ -796,7 +806,7 @@ int main() {
                     if (g_difftest.diff_detected) {
                         continue;
                     }
-                    output_signals(*sim);
+                    output_signals(*sim, true);
                 } else {
                     const auto& if_id = sim->if_id();
                     bool needs_input = false;
@@ -829,7 +839,7 @@ int main() {
                         if (g_difftest.diff_detected) {
                             continue;
                         }
-                        output_signals(*sim);
+                        output_signals(*sim, true);
                     }
                 }
             } else {
@@ -843,9 +853,24 @@ int main() {
                 std::cout << "{\"status\":\"error\",\"message\":\"No program loaded\"}" << std::endl;
                 continue;
             }
-            while (g_running && !sim->halted()) {
-                sim->step();
-                output_signals(*sim);
+            
+            if (g_difftest.enabled) {
+                while (g_running && !sim->halted()) {
+                    sim->step();
+                    if (g_difftest.shadow_sim) {
+                        g_difftest.shadow_sim->step();
+                    }
+                    check_wb_diff(sim.get());
+                    if (g_difftest.diff_detected) {
+                        break;
+                    }
+                    output_signals(*sim, true);
+                }
+            } else {
+                while (g_running && !sim->halted()) {
+                    sim->step();
+                    output_signals(*sim, false);
+                }
             }
 
         } else if (cmd == "reset") {
@@ -883,14 +908,14 @@ int main() {
                 std::cout << "{\"status\":\"error\",\"message\":\"No program loaded\"}" << std::endl;
                 continue;
             }
-            output_signals(*sim);
+            output_signals(*sim, g_difftest.enabled && g_difftest.shadow_sim);
 
         } else if (cmd == "registers") {
             if (!sim) {
                 std::cout << "{\"status\":\"error\",\"message\":\"No program loaded\"}" << std::endl;
                 continue;
             }
-            output_registers(*sim);
+            output_registers(*sim, g_difftest.enabled && g_difftest.shadow_sim);
 
         } else if (cmd == "enable_difftest") {
             std::string signals_str;
@@ -979,7 +1004,7 @@ int main() {
 
                     g_difftest.user_signals.clear();
 
-                    output_signals(*sim);
+                    output_signals(*sim, true);
                     std::cout.flush();
                     continue;
                 }
@@ -1041,7 +1066,11 @@ int main() {
             g_difftest.user_signals.clear();
 
             std::cout << "{\"status\":\"ok\",\"message\":\"Loaded ELF binary\",\"binary_size\":" << binary.size() << ",";
-            output_signals_body(*sim);
+            if (g_difftest.enabled && g_difftest.shadow_sim) {
+                output_signals_body(*g_difftest.shadow_sim);
+            } else {
+                output_signals_body(*sim);
+            }
             std::cout << "}" << std::endl;
             std::cout.flush();
 
