@@ -22,6 +22,8 @@ namespace {
 
 std::atomic<bool> g_running{true};
 std::string g_current_elf_path;
+std::vector<riscv::u8> g_last_binary;
+riscv::u64 g_last_load_offset{0};
 
 struct DiffTestConfig {
     bool enabled{false};
@@ -32,6 +34,7 @@ struct DiffTestConfig {
     // Waiting state
     bool waiting_for_input{false};
     std::uint64_t waiting_pc{0};
+    bool signals_just_submitted{false};
 
     // Diff detection state
     bool diff_detected{false};
@@ -220,7 +223,12 @@ bool is_signal_relevant(const riscv::DecodedInstruction& instr, const std::strin
     if (instr.kind == riscv::InstructionKind::ECALL || instr.kind == riscv::InstructionKind::EBREAK) {
         return false;
     }
-    
+
+    // INVALID instructions don't require signal input
+    if (instr.kind == riscv::InstructionKind::INVALID) {
+        return false;
+    }
+
     if (signal_name == "RegWrite") {
         // Skip jal x0, offset (rd=0, writing to x0 is meaningless)
         if (instr.writes_rd() && instr.rd == 0) {
@@ -478,11 +486,20 @@ void output_signals_body(riscv::RISCVSimulator& sim) {
     auto ex_mem_instr = ex_mem.valid ? riscv::decode(ex_mem.instr.raw, ex_mem.instr.pc) : riscv::DecodedInstruction{};
     std::string ex_mem_asm = ex_mem.valid ? riscv::to_asm_string(ex_mem_instr) : "NOP";
 
+    riscv::u64 alu_src2_value = id_ex.valid ? id_ex.rs2_value : 0;
+    if (id_ex.valid) {
+        if (id_ex_instr.format == riscv::InstructionFormat::I ||
+            id_ex_instr.format == riscv::InstructionFormat::S ||
+            id_ex_instr.format == riscv::InstructionFormat::U) {
+            alu_src2_value = static_cast<riscv::u64>(id_ex.instr.imm);
+        }
+    }
+
     std::cout << ",\"execute\":{"
               << "\"pc\":\"0x" << std::hex << (id_ex.valid ? id_ex.instr.pc : 0) << std::dec << "\","
               << "\"valid\":" << (id_ex.valid ? "true" : "false") << ","
               << "\"alu_src1\":\"0x" << std::hex << (id_ex.valid ? id_ex.rs1_value : 0) << std::dec << "\","
-              << "\"alu_src2\":\"0x" << std::hex << (id_ex.valid ? id_ex.rs2_value : 0) << std::dec << "\","
+              << "\"alu_src2\":\"0x" << std::hex << alu_src2_value << std::dec << "\","
               << "\"alu_result\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.alu_result : 0) << std::dec << "\","
               << "\"fu_type\":\"" << (id_ex.valid ? riscv::to_string(id_ex_instr.kind) : "NONE") << "\","
               << "\"asm\":\"" << id_ex_asm << "\""
@@ -494,10 +511,12 @@ void output_signals_body(riscv::RISCVSimulator& sim) {
               << "\"inst\":" << (ex_mem.valid ? ex_mem.instr.raw : 0) << ","
               << "\"instruction\":\"" << (ex_mem.valid ? riscv::to_string(ex_mem_instr.kind) : "NONE") << "\","
               << "\"asm\":\"" << ex_mem_asm << "\","
+              << "\"alu_src1\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.alu_src1 : 0) << std::dec << "\","
+              << "\"alu_src2\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.alu_src2 : 0) << std::dec << "\","
               << "\"alu_result\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.alu_result : 0) << std::dec << "\","
               << "\"branch_taken\":" << (ex_mem.valid ? (ex_mem.branch_taken ? "true" : "false") : "false") << ","
               << "\"branch_target\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.branch_target : 0) << std::dec << "\","
-              << "\"mem_addr\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.alu_result : 0) << std::dec << "\","
+              << "\"mem_addr\":\"0x" << std::hex << (ex_mem.valid && (ex_mem.instr.is_load() || ex_mem.instr.is_store()) ? ex_mem.alu_result : 0) << std::dec << "\","
               << "\"mem_wen\":" << (ex_mem.valid && ex_mem.instr.is_store() ? "true" : "false") << ","
               << "\"mem_ren\":" << (ex_mem.valid && ex_mem.instr.is_load() ? "true" : "false") << ","
               << "\"mem_wdata\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.rs2_value : 0) << std::dec << "\","
@@ -547,7 +566,7 @@ void output_signals_body(riscv::RISCVSimulator& sim) {
               << "\"DataMEM_wen\":" << (ex_mem.valid && ex_mem.instr.is_store() ? "true" : "false") << ","
               << "\"DataMEM_addr\":\"0x" << std::hex << (datamem_en ? ex_mem.alu_result : 0) << std::dec << "\","
               << "\"DataMEM_rdata\":0,"
-              << "\"DataMEM_wdata\":\"0x" << std::hex << (ex_mem.valid ? ex_mem.rs2_value : 0) << std::dec << "\""
+              << "\"DataMEM_wdata\":\"0x" << std::hex << (ex_mem.valid && ex_mem.instr.is_store() ? ex_mem.rs2_value : 0) << std::dec << "\""
               << "}";
 
     std::cout << ",\"halted\":" << (sim.halted() ? "true" : "false");
@@ -610,8 +629,10 @@ int main() {
             sim = std::make_unique<riscv::RISCVSimulator>();
             sim->load_program(result.binary, result.load_offset);
             g_current_elf_path = filepath;
+            g_last_binary = result.binary;
+            g_last_load_offset = result.load_offset;
             
-            if (g_difftest.shadow_mode) {
+            if (g_difftest.enabled && !g_difftest.enabled_signals.empty()) {
                 g_difftest.shadow_sim = std::make_unique<riscv::RISCVSimulator>();
                 g_difftest.shadow_sim->load_program(result.binary, result.load_offset);
             }
@@ -696,8 +717,10 @@ int main() {
                     sim = std::make_unique<riscv::RISCVSimulator>();
                     sim->load_program(result.binary, result.load_offset);
                     g_current_elf_path = test.elf_path;
+                    g_last_binary = result.binary;
+                    g_last_load_offset = result.load_offset;
 
-                    if (g_difftest.shadow_mode) {
+                    if (g_difftest.enabled && !g_difftest.enabled_signals.empty()) {
                         g_difftest.shadow_sim = std::make_unique<riscv::RISCVSimulator>();
                         g_difftest.shadow_sim->load_program(result.binary, result.load_offset);
                     }
@@ -763,41 +786,51 @@ int main() {
             }
             
             if (g_difftest.enabled) {
-                // Check if ID stage instruction needs user input
-                const auto& if_id = sim->if_id();
-                bool needs_input = false;
-                riscv::DecodedInstruction id_instr{};
-                
-                if (if_id.valid) {
-                    id_instr = riscv::decode(if_id.inst, if_id.pc);
-                    needs_input = needs_user_input(id_instr, g_difftest.enabled_signals);
-                }
-                
-                if (needs_input) {
-                    // Pause pipeline and request user input
-                    g_difftest.waiting_for_input = true;
-                    g_difftest.waiting_pc = if_id.pc;
-                    g_difftest.user_signals.clear();
-                    
-                    // Set waiting state on simulators
-                    sim->set_waiting_for_input(true, if_id.pc);
-                    if (g_difftest.shadow_sim) {
-                        g_difftest.shadow_sim->set_waiting_for_input(true, if_id.pc);
-                    }
-                    
-                    // Output signal input request
-                    std::string instr_name = riscv::to_string(id_instr.kind);
-                    output_need_all_signals_input(id_instr, instr_name);
-                } else {
-                    // No input needed, step both simulators
+                if (g_difftest.signals_just_submitted) {
+                    g_difftest.signals_just_submitted = false;
                     sim->step();
                     if (g_difftest.shadow_sim) {
                         g_difftest.shadow_sim->step();
                     }
-                    
-                    // Check WB stage for diff
                     check_wb_diff(sim.get());
+                    if (g_difftest.diff_detected) {
+                        continue;
+                    }
                     output_signals(*sim);
+                } else {
+                    const auto& if_id = sim->if_id();
+                    bool needs_input = false;
+                    riscv::DecodedInstruction id_instr{};
+
+                    if (if_id.valid) {
+                        id_instr = riscv::decode(if_id.inst, if_id.pc);
+                        needs_input = needs_user_input(id_instr, g_difftest.enabled_signals);
+                    }
+
+                    if (needs_input) {
+                        g_difftest.waiting_for_input = true;
+                        g_difftest.waiting_pc = if_id.pc;
+                        g_difftest.user_signals.clear();
+
+                        sim->set_waiting_for_input(true, if_id.pc);
+                        if (g_difftest.shadow_sim) {
+                            g_difftest.shadow_sim->set_waiting_for_input(true, if_id.pc);
+                        }
+
+                        std::string instr_name = riscv::to_string(id_instr.kind);
+                        output_need_all_signals_input(id_instr, instr_name);
+                    } else {
+                        sim->step();
+                        if (g_difftest.shadow_sim) {
+                            g_difftest.shadow_sim->step();
+                        }
+
+                        check_wb_diff(sim.get());
+                        if (g_difftest.diff_detected) {
+                            continue;
+                        }
+                        output_signals(*sim);
+                    }
                 }
             } else {
                 // Normal mode without difftest
@@ -824,18 +857,26 @@ int main() {
                 g_difftest.shadow_sim->reset();
                 g_difftest.shadow_sim->set_waiting_for_input(false);
             }
-            g_difftest.enabled = false;
-            g_difftest.shadow_mode = false;
             g_difftest.diff_detected = false;
             g_difftest.diff_message.clear();
             g_difftest.waiting_for_input = false;
+            g_difftest.signals_just_submitted = false;
             g_difftest.waiting_pc = 0;
-            g_difftest.enabled_signals.clear();
             g_difftest.user_signals.clear();
             g_difftest.golden_result = DiffTestConfig::Result();
             g_difftest.user_result = DiffTestConfig::Result();
-            g_difftest.shadow_sim.reset();
-            std::cout << "{\"status\":\"ok\",\"message\":\"Reset\"}" << std::endl;
+
+            std::cout << "{\"status\":\"ok\",\"message\":\"Reset\",\"difftest\":{\"enabled\":" 
+                      << (g_difftest.enabled ? "true" : "false") 
+                      << ",\"shadow_mode\":" << (g_difftest.shadow_mode ? "true" : "false")
+                      << ",\"signals\":[";
+            bool first_signal = true;
+            for (const auto& sig : g_difftest.enabled_signals) {
+                if (!first_signal) std::cout << ",";
+                std::cout << "\"" << sig << "\"";
+                first_signal = false;
+            }
+            std::cout << "]}}" << std::endl;
 
         } else if (cmd == "signals") {
             if (!sim) {
@@ -877,13 +918,11 @@ int main() {
             if (g_difftest.enabled) {
                 if (!sim) {
                     std::cout << "{\"status\":\"error\",\"message\":\"No program loaded\"}" << std::endl;
-                } else {
-                    // Create shadow_sim for user input mode
+                } else if (!g_last_binary.empty()) {
                     g_difftest.shadow_sim = std::make_unique<riscv::RISCVSimulator>();
-                    auto load_result = riscv::load_elf(g_current_elf_path);
-                    if (load_result.success) {
-                        g_difftest.shadow_sim->load_program(load_result.binary, load_result.load_offset);
-                    }
+                    g_difftest.shadow_sim->load_program(g_last_binary, g_last_load_offset);
+                } else {
+                    std::cout << "{\"status\":\"error\",\"message\":\"No binary data available for shadow simulator\"}" << std::endl;
                 }
             }
 
@@ -897,6 +936,7 @@ int main() {
             g_difftest.diff_detected = false;
             g_difftest.diff_message.clear();
             g_difftest.waiting_for_input = false;
+            g_difftest.signals_just_submitted = false;
             g_difftest.waiting_pc = 0;
             g_difftest.enabled_signals.clear();
             g_difftest.user_signals.clear();
@@ -923,8 +963,6 @@ int main() {
                 }
                 
                 if (all_signals_received) {
-                    // Set user signals only to shadow_sim (student's incorrect execution)
-                    // sim (golden) uses default signals from decoder
                     if (g_difftest.shadow_sim) {
                         for (const auto& [sig_name, sig_value] : g_difftest.user_signals) {
                             g_difftest.shadow_sim->set_user_signal_for_id(sig_name, sig_value);
@@ -932,38 +970,16 @@ int main() {
                         g_difftest.shadow_sim->set_waiting_handled(false);
                     }
 
-                    // Clear waiting state
                     g_difftest.waiting_for_input = false;
+                    g_difftest.signals_just_submitted = true;
                     sim->set_waiting_for_input(false);
                     if (g_difftest.shadow_sim) {
                         g_difftest.shadow_sim->set_waiting_for_input(false);
                     }
 
-                    // Step both simulators to let the instruction flow through pipeline
-                    sim->step();
-                    if (g_difftest.shadow_sim) {
-                        g_difftest.shadow_sim->step();
-                    }
-
-                    // Check WB diff after first step
-                    check_wb_diff(sim.get());
-
-                    // If no diff detected, step again to let the instruction reach WB stage
-                    if (!g_difftest.diff_detected) {
-                        sim->step();
-                        if (g_difftest.shadow_sim) {
-                            g_difftest.shadow_sim->step();
-                        }
-                        check_wb_diff(sim.get());
-                    }
-
-                    // Clear user signals
                     g_difftest.user_signals.clear();
 
-                    // Only output signals if no diff detected
-                    if (!g_difftest.diff_detected) {
-                        output_signals(*sim);
-                    }
+                    output_signals(*sim);
                     std::cout.flush();
                     continue;
                 }
@@ -1011,10 +1027,14 @@ int main() {
             sim = std::make_unique<riscv::RISCVSimulator>();
             sim->load_program(binary, 0x80000000ULL);
 
-            if (g_difftest.shadow_mode) {
+            if (g_difftest.enabled && !g_difftest.enabled_signals.empty()) {
                 g_difftest.shadow_sim = std::make_unique<riscv::RISCVSimulator>();
                 g_difftest.shadow_sim->load_program(binary, 0x80000000ULL);
             }
+
+            g_current_elf_path = "memory_binary";
+            g_last_binary = binary;
+            g_last_load_offset = 0x80000000ULL;
 
             g_difftest.diff_detected = false;
             g_difftest.waiting_for_input = false;

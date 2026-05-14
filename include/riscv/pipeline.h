@@ -45,6 +45,8 @@ struct EXMEM {
     bool valid{false};
     DecodedInstruction instr{};
     u64 alu_result{0};
+    u64 alu_src1{0};
+    u64 alu_src2{0};
     u64 rs2_value{0};
     bool branch_taken{false};
     u64 branch_target{0};

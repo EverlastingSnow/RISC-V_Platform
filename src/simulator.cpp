@@ -368,7 +368,7 @@ void RISCVSimulator::stage_id() {
         next_id_ex_.user_signals = saved_user_signals;
     } else if (!waiting_for_input_ && !waiting_handled_ && if_id_.pc == waiting_pc_) {
         next_id_ex_.user_signals = saved_user_signals;
-    } else {
+    } else if (!waiting_handled_) {
         next_id_ex_.user_signals.clear();
         waiting_handled_ = false;
     }
@@ -427,6 +427,44 @@ void RISCVSimulator::stage_ex() {
     u64 alu_result = 0;
     bool branch_taken = false;
     u64 branch_target = 0;
+    u64 alu_src1 = rs1_val;
+    u64 alu_src2 = rs2_val;
+
+    if (id_ex_.valid) {
+        bool uses_imm_for_alu = false;
+        switch (instr.kind) {
+            case InstructionKind::ADDI:
+            case InstructionKind::ADDIW:
+            case InstructionKind::ANDI:
+            case InstructionKind::ORI:
+            case InstructionKind::XORI:
+            case InstructionKind::SLLI:
+            case InstructionKind::SRLI:
+            case InstructionKind::SRAI:
+            case InstructionKind::SLTI:
+            case InstructionKind::SLTIU:
+            case InstructionKind::LB:
+            case InstructionKind::LH:
+            case InstructionKind::LW:
+            case InstructionKind::LD:
+            case InstructionKind::LBU:
+            case InstructionKind::LHU:
+            case InstructionKind::LWU:
+            case InstructionKind::SB:
+            case InstructionKind::SH:
+            case InstructionKind::SW:
+            case InstructionKind::SD:
+            case InstructionKind::JALR:
+                uses_imm_for_alu = true;
+                break;
+            default:
+                uses_imm_for_alu = false;
+                break;
+        }
+        if (uses_imm_for_alu) {
+            alu_src2 = static_cast<u64>(id_ex_.instr.imm);
+        }
+    }
 
     switch (instr.kind) {
         case InstructionKind::LUI:
@@ -770,17 +808,32 @@ void RISCVSimulator::stage_ex() {
             break;
         }
         case InstructionKind::ECALL:
-            halted_ = true;
+            pending_ebreak_ = true;
             halt_reason_ = HaltReason::Ecall;
             halt_pc_ = instr.pc;
             halt_inst_ = instr.raw;
             alu_result = 0;
             break;
         case InstructionKind::EBREAK:
-            pending_ebreak_ = true;
-            halt_reason_ = HaltReason::Ebreak;
-            halt_pc_ = instr.pc;
-            halt_inst_ = instr.raw;
+            csr_.write(CSR_MEPC, instr.pc);
+            csr_.write(CSR_MCAUSE, 3);
+            csr_.write(CSR_MTVAL, 0);
+            {
+                u64 mstatus = csr_.read(CSR_MSTATUS);
+                constexpr u64 MSTATUS_MIE = 1ULL << 3;
+                constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+                u64 old_mie = (mstatus & MSTATUS_MIE) ? 1 : 0;
+                mstatus = (mstatus & ~MSTATUS_MPIE) | (old_mie ? MSTATUS_MPIE : 0);
+                mstatus &= ~MSTATUS_MIE;
+                csr_.write(CSR_MSTATUS, mstatus);
+            }
+            {
+                u64 mtvec = csr_.read(CSR_MTVEC);
+                branch_taken = true;
+                branch_target = mtvec & ~0x3ULL;
+                flush_decode_ = true;
+                flush_execute_ = true;
+            }
             alu_result = 0;
             break;
         case InstructionKind::MRET: {
@@ -850,6 +903,8 @@ void RISCVSimulator::stage_ex() {
     next_ex_mem_.valid = id_ex_.valid;
     next_ex_mem_.instr = instr;
     next_ex_mem_.alu_result = alu_result;
+    next_ex_mem_.alu_src1 = alu_src1;
+    next_ex_mem_.alu_src2 = alu_src2;
     next_ex_mem_.rs2_value = rs2_val;
     next_ex_mem_.branch_taken = branch_taken;
     next_ex_mem_.branch_target = branch_target;
@@ -1020,7 +1075,7 @@ void RISCVSimulator::stage_wb() {
         return;
     }
 
-    if (pending_ebreak_) {
+    if (pending_ebreak_ && mem_wb_.instr.kind == InstructionKind::ECALL) {
         halted_ = true;
         pending_ebreak_ = false;
     }
@@ -1122,6 +1177,7 @@ void RISCVSimulator::set_user_signal_for_id(const std::string& signal_name, bool
         } else if (signal_name == "Branch") {
             next_id_ex_.user_signals.branch = value;
         }
+        waiting_handled_ = true;
     }
 }
 
