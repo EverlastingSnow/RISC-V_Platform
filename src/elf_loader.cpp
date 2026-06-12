@@ -391,4 +391,80 @@ ElfLoadResult load_elf(const std::string& path, u64 memory_base) {
     return out;
 }
 
+namespace {
+
+// 64 位符号表项
+#pragma pack(push, 1)
+struct Elf64_Sym {
+    std::uint32_t st_name;
+    std::uint8_t  st_info;
+    std::uint8_t  st_other;
+    std::uint16_t st_shndx;
+    std::uint64_t st_value;
+    std::uint64_t st_size;
+};
+#pragma pack(pop)
+
+constexpr std::uint32_t SHT_SYMTAB = 2;
+constexpr std::uint32_t SHT_STRTAB = 3;
+
+}  // namespace
+
+u64 find_tohost_address(const std::string& path) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file) return 0;
+
+    Elf64_Ehdr ehdr{};
+    file.read(reinterpret_cast<char*>(&ehdr), sizeof(ehdr));
+    if (file.gcount() != static_cast<std::streamsize>(sizeof(ehdr))) return 0;
+    if (ehdr.e_ident[EI_MAG0] != 0x7f || ehdr.e_ident[1] != 'E' ||
+        ehdr.e_ident[2] != 'L' || ehdr.e_ident[3] != 'F') return 0;
+    if (ehdr.e_shoff == 0 || ehdr.e_shnum == 0) return 0;
+
+    // 读取所有 section headers
+    std::vector<Elf64_Shdr> shdrs(ehdr.e_shnum);
+    for (std::uint16_t i = 0; i < ehdr.e_shnum; ++i) {
+        file.seekg(static_cast<std::streamoff>(ehdr.e_shoff + i * ehdr.e_shentsize));
+        file.read(reinterpret_cast<char*>(&shdrs[i]), sizeof(shdrs[i]));
+    }
+
+    // 找 .symtab
+    u64 symtab_offset = 0, symtab_size = 0, symtab_entsize = 0, symtab_link = 0;
+    for (const auto& sh : shdrs) {
+        if (sh.sh_type == SHT_SYMTAB) {
+            symtab_offset = sh.sh_offset;
+            symtab_size = sh.sh_size;
+            symtab_entsize = sh.sh_entsize ? sh.sh_entsize : sizeof(Elf64_Sym);
+            symtab_link = sh.sh_link;
+            break;
+        }
+    }
+    if (symtab_size == 0 || symtab_link == 0 || symtab_link >= shdrs.size()) return 0;
+
+    // 用 symtab.sh_link 找对应的 strtab（避免与 .shstrtab 混淆）
+    const auto& strtab_sh = shdrs[symtab_link];
+    u64 strtab_offset = strtab_sh.sh_offset;
+    u64 strtab_size = strtab_sh.sh_size;
+
+    // 读取 strtab
+    std::vector<u8> strtab(strtab_size);
+    file.seekg(static_cast<std::streamoff>(strtab_offset));
+    file.read(reinterpret_cast<char*>(strtab.data()), strtab_size);
+
+    // 遍历 symtab
+    const std::size_t n = static_cast<std::size_t>(symtab_size / symtab_entsize);
+    for (std::size_t i = 0; i < n; ++i) {
+        Elf64_Sym sym{};
+        file.seekg(static_cast<std::streamoff>(symtab_offset + i * symtab_entsize));
+        file.read(reinterpret_cast<char*>(&sym), sizeof(sym));
+        if (file.gcount() != static_cast<std::streamsize>(sizeof(sym))) continue;
+        if (sym.st_name >= strtab.size()) continue;
+        const char* name = reinterpret_cast<const char*>(strtab.data() + sym.st_name);
+        if (std::string(name) == "tohost") {
+            return sym.st_value;
+        }
+    }
+    return 0;
+}
+
 }  // namespace riscv

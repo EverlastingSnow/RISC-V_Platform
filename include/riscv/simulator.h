@@ -13,8 +13,10 @@ namespace riscv {
 enum class HaltReason {
     None,
     Ecall,
+    EcallExit,           // riscv-tests 退出语义 (a7=93)
     Ebreak,
     InvalidInstruction,
+    MisalignedAccess,    // 取指 PC 未 4 字节对齐
 };
 
 class RISCVSimulator {
@@ -26,6 +28,9 @@ public:
     void step();
     void run(u32 cycles);
 
+    // 设置 riscv-tests 的 tohost 内存地址（非零时启用停机检测）
+    void set_tohost_address(u64 addr) { tohost_address_ = addr; }
+
     [[nodiscard]] const RegisterFile& registers() const { return regs_; }
     [[nodiscard]] const Memory& memory() const { return memory_; }
     [[nodiscard]] Memory& memory() { return memory_; }
@@ -35,7 +40,8 @@ public:
     [[nodiscard]] bool halted() const { return halted_; }
     [[nodiscard]] HaltReason halt_reason() const { return halt_reason_; }
     [[nodiscard]] bool halt_reason_ecall() const {
-        return halt_reason_ == HaltReason::Ecall;
+        return halt_reason_ == HaltReason::Ecall ||
+               halt_reason_ == HaltReason::EcallExit;
     }
     [[nodiscard]] bool halt_reason_ebreak() const {
         return halt_reason_ == HaltReason::Ebreak;
@@ -135,9 +141,23 @@ private:
     bool pending_ebreak_{false};
     bool waiting_handled_{false};
 
+    // EcallExit 延迟提交：EX 阶段检测到 a7=93 时只置位，
+    // 等到该 ECALL 走到 WB 阶段、流水线已排空前置指令后再真正停机，
+    // 避免读取陈旧的寄存器值（与 forward/写回时机相关）
+    bool pending_ecall_exit_{false};
+    u64 pending_ecall_halt_pc_{0};
+    u32 pending_ecall_halt_inst_{0};
+
+    // EX 阶段异常标志：当异常在 EX 阶段触发时置位，
+    // 用于阻止异常指令继续推进到 MEM/WB（避免覆盖正常写回）
+    bool exception_taken_{false};
+
     // Trap cause：每次 trap 时由 stage_if / stage_ex 设置，
     // output_signals_body 输出后由 C++ 端调用 clear_trap_cause() 清零
     TrapCause last_trap_cause_{TrapCause::None};
+
+    // riscv-tests 退出协议：tohost 内存地址
+    u64 tohost_address_{0};
 };
 
 }  // namespace riscv

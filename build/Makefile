@@ -156,6 +156,19 @@ run_riscv_tests/fast:
 .PHONY : run_riscv_tests/fast
 
 #=============================================================================
+# Target rules for targets named debug_test
+
+# Build rule for target.
+debug_test: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 debug_test
+.PHONY : debug_test
+
+# fast build rule for target.
+debug_test/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/debug_test.dir/build.make CMakeFiles/debug_test.dir/build
+.PHONY : debug_test/fast
+
+#=============================================================================
 # Target rules for targets named riscv_sim_server
 
 # Build rule for target.
@@ -192,6 +205,30 @@ src/csr.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/riscv_core.dir/build.make CMakeFiles/riscv_core.dir/src/csr.cpp.s
 .PHONY : src/csr.cpp.s
 
+src/debug_test.o: src/debug_test.cpp.o
+.PHONY : src/debug_test.o
+
+# target to build an object file
+src/debug_test.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/debug_test.dir/build.make CMakeFiles/debug_test.dir/src/debug_test.cpp.o
+.PHONY : src/debug_test.cpp.o
+
+src/debug_test.i: src/debug_test.cpp.i
+.PHONY : src/debug_test.i
+
+# target to preprocess a source file
+src/debug_test.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/debug_test.dir/build.make CMakeFiles/debug_test.dir/src/debug_test.cpp.i
+.PHONY : src/debug_test.cpp.i
+
+src/debug_test.s: src/debug_test.cpp.s
+.PHONY : src/debug_test.s
+
+# target to generate assembly for a file
+src/debug_test.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/debug_test.dir/build.make CMakeFiles/debug_test.dir/src/debug_test.cpp.s
+.PHONY : src/debug_test.cpp.s
+
 src/decoder.o: src/decoder.cpp.o
 .PHONY : src/decoder.o
 
@@ -222,6 +259,7 @@ src/elf_loader.o: src/elf_loader.cpp.o
 # target to build an object file
 src/elf_loader.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_riscv_tests.dir/build.make CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/debug_test.dir/build.make CMakeFiles/debug_test.dir/src/elf_loader.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/riscv_sim_server.dir/build.make CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.o
 .PHONY : src/elf_loader.cpp.o
 
@@ -231,6 +269,7 @@ src/elf_loader.i: src/elf_loader.cpp.i
 # target to preprocess a source file
 src/elf_loader.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_riscv_tests.dir/build.make CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/debug_test.dir/build.make CMakeFiles/debug_test.dir/src/elf_loader.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/riscv_sim_server.dir/build.make CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.i
 .PHONY : src/elf_loader.cpp.i
 
@@ -240,6 +279,7 @@ src/elf_loader.s: src/elf_loader.cpp.s
 # target to generate assembly for a file
 src/elf_loader.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_riscv_tests.dir/build.make CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/debug_test.dir/build.make CMakeFiles/debug_test.dir/src/elf_loader.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/riscv_sim_server.dir/build.make CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.s
 .PHONY : src/elf_loader.cpp.s
 
@@ -395,6 +435,7 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
+	@echo "... debug_test"
 	@echo "... riscv_core"
 	@echo "... riscv_sim"
 	@echo "... riscv_sim_server"
@@ -402,6 +443,9 @@ help:
 	@echo "... src/csr.o"
 	@echo "... src/csr.i"
 	@echo "... src/csr.s"
+	@echo "... src/debug_test.o"
+	@echo "... src/debug_test.i"
+	@echo "... src/debug_test.s"
 	@echo "... src/decoder.o"
 	@echo "... src/decoder.i"
 	@echo "... src/decoder.s"

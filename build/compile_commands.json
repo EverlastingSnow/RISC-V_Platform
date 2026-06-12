@@ -41,6 +41,16 @@
 },
 {
   "directory": "/opt/RISC-V_Platform/build",
+  "command": "/usr/bin/c++  -I/opt/RISC-V_Platform/include -O3 -DNDEBUG -fPIE -std=gnu++20 -o CMakeFiles/debug_test.dir/src/debug_test.cpp.o -c /opt/RISC-V_Platform/src/debug_test.cpp",
+  "file": "/opt/RISC-V_Platform/src/debug_test.cpp"
+},
+{
+  "directory": "/opt/RISC-V_Platform/build",
+  "command": "/usr/bin/c++  -I/opt/RISC-V_Platform/include -O3 -DNDEBUG -fPIE -std=gnu++20 -o CMakeFiles/debug_test.dir/src/elf_loader.cpp.o -c /opt/RISC-V_Platform/src/elf_loader.cpp",
+  "file": "/opt/RISC-V_Platform/src/elf_loader.cpp"
+},
+{
+  "directory": "/opt/RISC-V_Platform/build",
   "command": "/usr/bin/c++  -I/opt/RISC-V_Platform/include -O3 -DNDEBUG -fPIE -std=gnu++20 -o CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.o -c /opt/RISC-V_Platform/src/riscv_sim_server.cpp",
   "file": "/opt/RISC-V_Platform/src/riscv_sim_server.cpp"
 },

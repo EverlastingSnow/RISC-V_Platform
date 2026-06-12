@@ -176,6 +176,9 @@ void RISCVSimulator::reset() {
     flush_decode_ = false;
     flush_execute_ = false;
     pending_ebreak_ = false;
+    pending_ecall_exit_ = false;
+    pending_ecall_halt_pc_ = 0;
+    pending_ecall_halt_inst_ = 0;
     last_trap_cause_ = TrapCause::None;
 }
 
@@ -329,6 +332,48 @@ void RISCVSimulator::stage_if() {
         return;
     }
 
+    // PC 必须 4 字节对齐；不满足时触发取指 misalign trap (mcause=0)
+    // 对应 rv64mi-p-ma_fetch 测试。注意：trick 方式跳转（jalr 目标地址未对齐）
+    // 是合法实现可检测的异常，不能直接 halt。
+    if ((pc_ & 0x3ULL) != 0) {
+        csr_.write(CSR_MEPC, pc_);
+        csr_.write(CSR_MCAUSE, 0);  // Exception code 0 = Instruction address misaligned
+        csr_.write(CSR_MTVAL, pc_);
+        {
+            constexpr u64 MSTATUS_MIE = 1ULL << 3;
+            constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+            constexpr u64 MSTATUS_MPP_MASK = 3ULL << 11;
+            const u64 priv = static_cast<u64>(csr_.privilege_mode());
+            u64 mstatus = csr_.read(CSR_MSTATUS);
+            if (mstatus & MSTATUS_MIE) {
+                mstatus |= MSTATUS_MPIE;
+            } else {
+                mstatus &= ~MSTATUS_MPIE;
+            }
+            mstatus &= ~MSTATUS_MIE;
+            mstatus = (mstatus & ~MSTATUS_MPP_MASK) | (priv << 11);
+            csr_.write(CSR_MSTATUS, mstatus);
+        }
+        {
+            u64 mtvec = csr_.read(CSR_MTVEC);
+            redirect_ = true;
+            redirect_target_ = mtvec & ~0x3ULL;
+            flush_decode_ = true;
+            flush_execute_ = true;
+        }
+        csr_.set_privilege_mode(PrivilegeMode::Machine);
+        last_trap_cause_ = TrapCause::Exception;
+        if_id_ = {};
+        id_ex_ = {};
+        ex_mem_ = {};
+        mem_wb_ = {};
+        next_if_id_ = {};
+        next_id_ex_ = {};
+        next_ex_mem_ = {};
+        next_mem_wb_ = {};
+        return;
+    }
+
     next_if_id_ = {};
     next_if_id_.valid = true;
     next_if_id_.pc = pc_;
@@ -403,6 +448,9 @@ void RISCVSimulator::stage_ex() {
     if (redirect_) {
         return;
     }
+
+    // 重置本周期 EX 阶段异常标志
+    exception_taken_ = false;
 
     const auto instr = id_ex_.instr;
     u64 rs1_val = id_ex_.rs1_value;
@@ -498,28 +546,139 @@ void RISCVSimulator::stage_ex() {
         case InstructionKind::AUIPC:
             alu_result = instr.pc + static_cast<u64>(instr.imm);
             break;
-        case InstructionKind::JAL:
+        case InstructionKind::JAL: {
+            // JAL 目标地址必须 4 字节对齐；不满足时触发取指 misalign trap (mcause=0)
+            // 对应 rv64mi-p-ma_fetch 测试中"jal 到 2 字节偏移地址"等场景
+            const u64 jal_target = instr.pc + static_cast<u64>(instr.imm);
+            if ((jal_target & 0x3ULL) != 0) {
+                alu_result = 0;
+                csr_.write(CSR_MEPC, instr.pc);
+                csr_.write(CSR_MCAUSE, 0);  // Exception code 0 = Instruction address misaligned
+                csr_.write(CSR_MTVAL, jal_target);
+                {
+                    constexpr u64 MSTATUS_MIE = 1ULL << 3;
+                    constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+                    constexpr u64 MSTATUS_MPP_MASK = 3ULL << 11;
+                    const u64 priv = static_cast<u64>(csr_.privilege_mode());
+                    u64 mstatus = csr_.read(CSR_MSTATUS);
+                    if (mstatus & MSTATUS_MIE) {
+                        mstatus |= MSTATUS_MPIE;
+                    } else {
+                        mstatus &= ~MSTATUS_MPIE;
+                    }
+                    mstatus &= ~MSTATUS_MIE;
+                    mstatus = (mstatus & ~MSTATUS_MPP_MASK) | (priv << 11);
+                    csr_.write(CSR_MSTATUS, mstatus);
+                }
+                {
+                    u64 mtvec = csr_.read(CSR_MTVEC);
+                    branch_taken = true;
+                    branch_target = mtvec & ~0x3ULL;
+                    flush_decode_ = true;
+                    flush_execute_ = true;
+                }
+                csr_.set_privilege_mode(PrivilegeMode::Machine);
+                pending_ebreak_ = false;
+                last_trap_cause_ = TrapCause::Exception;
+                exception_taken_ = true;
+                break;
+            }
             alu_result = instr.pc + 4;
             branch_taken = true;
-            branch_target = instr.pc + static_cast<u64>(instr.imm);
+            branch_target = jal_target;
             break;
-        case InstructionKind::JALR:
+        }
+        case InstructionKind::JALR: {
             alu_result = instr.pc + 4;
-            branch_taken = true;
-            branch_target = (rs1_val + static_cast<u64>(instr.imm)) & ~1ULL;
+            // JALR 目标地址必须 4 字节对齐；不满足时触发取指 misalign trap (mcause=0)
+            // 对应 rv64mi-p-ma_fetch 测试中"jalr 到 2 字节偏移地址"等场景
+            const u64 jalr_target = (rs1_val + static_cast<u64>(instr.imm)) & ~1ULL;
+            if ((jalr_target & 0x3ULL) != 0) {
+                // 触发 Instruction address misaligned 异常
+                csr_.write(CSR_MEPC, instr.pc);
+                csr_.write(CSR_MCAUSE, 0);  // Exception code 0 = Instruction address misaligned
+                csr_.write(CSR_MTVAL, jalr_target);
+                {
+                    constexpr u64 MSTATUS_MIE = 1ULL << 3;
+                    constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+                    constexpr u64 MSTATUS_MPP_MASK = 3ULL << 11;
+                    const u64 priv = static_cast<u64>(csr_.privilege_mode());
+                    u64 mstatus = csr_.read(CSR_MSTATUS);
+                    if (mstatus & MSTATUS_MIE) {
+                        mstatus |= MSTATUS_MPIE;
+                    } else {
+                        mstatus &= ~MSTATUS_MPIE;
+                    }
+                    mstatus &= ~MSTATUS_MIE;
+                    mstatus = (mstatus & ~MSTATUS_MPP_MASK) | (priv << 11);
+                    csr_.write(CSR_MSTATUS, mstatus);
+                }
+                {
+                    u64 mtvec = csr_.read(CSR_MTVEC);
+                    branch_taken = true;
+                    branch_target = mtvec & ~0x3ULL;
+                    flush_decode_ = true;
+                    flush_execute_ = true;
+                }
+                csr_.set_privilege_mode(PrivilegeMode::Machine);
+                pending_ebreak_ = false;
+                last_trap_cause_ = TrapCause::Exception;
+                exception_taken_ = true;
+            } else {
+                branch_taken = true;
+                branch_target = jalr_target;
+            }
             break;
+        }
         case InstructionKind::BEQ:
         case InstructionKind::BNE:
         case InstructionKind::BLT:
         case InstructionKind::BGE:
         case InstructionKind::BLTU:
-        case InstructionKind::BGEU:
+        case InstructionKind::BGEU: {
             branch_taken = is_branch_taken(instr, rs1_val, rs2_val);
-            branch_target = instr.pc + static_cast<u64>(instr.imm);
+            const u64 br_target = instr.pc + static_cast<u64>(instr.imm);
             if (id_ex_.user_signals.branch.has_value()) {
                 branch_taken = id_ex_.user_signals.branch.value();
             }
+            // 分支目标地址必须 4 字节对齐；不满足时触发取指 misalign trap (mcause=0)
+            // 对应 rv64mi-p-ma_fetch 测试中"条件分支到 2 字节偏移地址"等场景
+            if (branch_taken && (br_target & 0x3ULL) != 0) {
+                alu_result = 0;
+                csr_.write(CSR_MEPC, instr.pc);
+                csr_.write(CSR_MCAUSE, 0);  // Exception code 0 = Instruction address misaligned
+                csr_.write(CSR_MTVAL, br_target);
+                {
+                    constexpr u64 MSTATUS_MIE = 1ULL << 3;
+                    constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+                    constexpr u64 MSTATUS_MPP_MASK = 3ULL << 11;
+                    const u64 priv = static_cast<u64>(csr_.privilege_mode());
+                    u64 mstatus = csr_.read(CSR_MSTATUS);
+                    if (mstatus & MSTATUS_MIE) {
+                        mstatus |= MSTATUS_MPIE;
+                    } else {
+                        mstatus &= ~MSTATUS_MPIE;
+                    }
+                    mstatus &= ~MSTATUS_MIE;
+                    mstatus = (mstatus & ~MSTATUS_MPP_MASK) | (priv << 11);
+                    csr_.write(CSR_MSTATUS, mstatus);
+                }
+                {
+                    u64 mtvec = csr_.read(CSR_MTVEC);
+                    branch_taken = true;
+                    branch_target = mtvec & ~0x3ULL;
+                    flush_decode_ = true;
+                    flush_execute_ = true;
+                }
+                csr_.set_privilege_mode(PrivilegeMode::Machine);
+                pending_ebreak_ = false;
+                last_trap_cause_ = TrapCause::Exception;
+                exception_taken_ = true;
+                break;
+            }
+            branch_target = br_target;
             break;
+        }
         case InstructionKind::LB:
         case InstructionKind::LH:
         case InstructionKind::LW:
@@ -530,9 +689,58 @@ void RISCVSimulator::stage_ex() {
         case InstructionKind::SB:
         case InstructionKind::SH:
         case InstructionKind::SW:
-        case InstructionKind::SD:
+        case InstructionKind::SD: {
             alu_result = rs1_val + alu_src2;
+            // 内存访问对齐检查：RV64 规范要求半字/字/双字访问必须对齐
+            // 否则触发 Load/Store address misaligned 异常
+            // mcause: 4 = Load misaligned, 6 = Store/AMO misaligned
+            const bool is_load = instr.is_load();
+            const bool is_store = instr.is_store();
+            u32 required_align = 1;
+            switch (instr.kind) {
+                case InstructionKind::LH: case InstructionKind::LHU:
+                case InstructionKind::SH: required_align = 2; break;
+                case InstructionKind::LW: case InstructionKind::LWU:
+                case InstructionKind::SW: required_align = 4; break;
+                case InstructionKind::LD:
+                case InstructionKind::SD: required_align = 8; break;
+                default: required_align = 1; break;
+            }
+            if (required_align > 1 && (alu_result % required_align) != 0) {
+                // 触发 misaligned 异常
+                csr_.write(CSR_MEPC, instr.pc);
+                csr_.write(CSR_MCAUSE, is_load ? 4u : 6u);
+                csr_.write(CSR_MTVAL, alu_result);
+                {
+                    constexpr u64 MSTATUS_MIE = 1ULL << 3;
+                    constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+                    constexpr u64 MSTATUS_MPP_MASK = 3ULL << 11;
+                    const u64 priv = static_cast<u64>(csr_.privilege_mode());
+                    u64 mstatus = csr_.read(CSR_MSTATUS);
+                    if (mstatus & MSTATUS_MIE) {
+                        mstatus |= MSTATUS_MPIE;
+                    } else {
+                        mstatus &= ~MSTATUS_MPIE;
+                    }
+                    mstatus &= ~MSTATUS_MIE;
+                    mstatus = (mstatus & ~MSTATUS_MPP_MASK) | (priv << 11);
+                    csr_.write(CSR_MSTATUS, mstatus);
+                }
+                {
+                    u64 mtvec = csr_.read(CSR_MTVEC);
+                    branch_taken = true;
+                    branch_target = mtvec & ~0x3ULL;
+                    flush_decode_ = true;
+                    flush_execute_ = true;
+                }
+                csr_.set_privilege_mode(PrivilegeMode::Machine);
+                pending_ebreak_ = false;
+                last_trap_cause_ = TrapCause::Exception;
+                exception_taken_ = true;
+                (void)is_store;
+            }
             break;
+        }
         case InstructionKind::ADDI:
             alu_result = rs1_val + alu_src2;
             break;
@@ -775,45 +983,81 @@ void RISCVSimulator::stage_ex() {
         }
         case InstructionKind::FENCE:
         case InstructionKind::FENCE_I:
-        case InstructionKind::SFENCE_VMA:
             alu_result = 0;
             break;
-        case InstructionKind::WFI: {
-            if (csr_.has_pending_interrupt()) {
-                u64 mstatus_wfi = csr_.read(CSR_MSTATUS);
-                constexpr u64 MSTATUS_MIE = 1ULL << 3;
-                constexpr u64 MSTATUS_MPIE = 1ULL << 7;
-                u64 old_mie = (mstatus_wfi & MSTATUS_MIE) ? 1 : 0;
-                mstatus_wfi = (mstatus_wfi & ~MSTATUS_MIE) | (old_mie ? MSTATUS_MPIE : 0);
-                csr_.write(CSR_MSTATUS, mstatus_wfi);
-                csr_.write(0x344, 0);
-                redirect_ = true;
-                redirect_target_ = pc_ + 4;
-                flush_decode_ = true;
-                flush_execute_ = true;
-                if_id_ = {};
-                id_ex_ = {};
-                ex_mem_ = {};
-                mem_wb_ = {};
-                next_if_id_ = {};
-                next_id_ex_ = {};
-                next_ex_mem_ = {};
-                next_mem_wb_ = {};
+        case InstructionKind::SFENCE_VMA: {
+            // mstatus.TVM (Trap Virtual Memory) 在 S-mode 下置 1 时，
+            // 执行 SFENCE.VMA 必须触发 Illegal instruction 异常 (mcause=2)，
+            // 跳转到 mtvec。对应 riscv-tests rv64mi-p-illegal 测试 2。
+            if (csr_.privilege_mode() == PrivilegeMode::Supervisor) {
+                constexpr u64 MSTATUS_TVM = 1ULL << 20;
+                if (csr_.read(CSR_MSTATUS) & MSTATUS_TVM) {
+                    csr_.write(CSR_MEPC, instr.pc);
+                    csr_.write(CSR_MCAUSE, 2);  // Illegal instruction
+                    csr_.write(CSR_MTVAL, instr.raw);
+                    {
+                        constexpr u64 MSTATUS_MIE = 1ULL << 3;
+                        constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+                        constexpr u64 MSTATUS_MPP_MASK = 3ULL << 11;
+                        const u64 priv = static_cast<u64>(csr_.privilege_mode());
+                        u64 mstatus = csr_.read(CSR_MSTATUS);
+                        if (mstatus & MSTATUS_MIE) {
+                            mstatus |= MSTATUS_MPIE;
+                        } else {
+                            mstatus &= ~MSTATUS_MPIE;
+                        }
+                        mstatus &= ~MSTATUS_MIE;
+                        mstatus = (mstatus & ~MSTATUS_MPP_MASK) | (priv << 11);
+                        csr_.write(CSR_MSTATUS, mstatus);
+                    }
+                    {
+                        u64 mtvec = csr_.read(CSR_MTVEC);
+                        branch_taken = true;
+                        branch_target = mtvec & ~0x3ULL;
+                        flush_decode_ = true;
+                        flush_execute_ = true;
+                    }
+                    csr_.set_privilege_mode(PrivilegeMode::Machine);
+                    pending_ebreak_ = false;
+                    last_trap_cause_ = TrapCause::Exception;
+                    exception_taken_ = true;
+                    alu_result = 0;
+                    break;
+                }
             }
-            stall_fetch_ = true;
-            next_id_ex_.valid = false;
             alu_result = 0;
             break;
         }
+        case InstructionKind::WFI:
+            // 教学场景：WFI 视为 nop（与参考实现一致）
+            alu_result = 0;
+            break;
         case InstructionKind::ECALL: {
-            // 教学演示：ECALL 走 trap 重定向，与 EBREAK 行为一致
-            // mepc 指向"下一条指令"，mret 后继续执行
-            csr_.write(CSR_MEPC, instr.pc + 4);
-            csr_.write(CSR_MCAUSE, 11);  // Environment call from M-mode
+            // riscv-tests 退出语义：a7=93 表示 POSIX exit
+            // 模拟器应停止运行，run_riscv_tests 读 a0 判定 PASS/FAIL
+            // 注意：不能直接在 EX 阶段停机！否则读 a0 时流水线前置指令
+            // (如 <pass> 中的 li a0, 0) 尚未写回寄存器文件，会读到陈旧值。
+            // 这里仅置位 pending_ecall_exit_，真正的停机推迟到 WB 阶段。
+            const u64 a7 = regs_.read(17);
+            if (a7 == 93) {
+                pending_ecall_exit_ = true;
+                pending_ecall_halt_pc_ = instr.pc;
+                pending_ecall_halt_inst_ = instr.raw;
+                alu_result = 0;
+                break;
+            }
+            // 普通 ECALL：trap 到 mtvec，mcause 按特权级区分
+            // 8=U-mode, 9=S-mode, 11=M-mode
+            // 重要：ECALL 的 mepc 应指向 ECALL 指令本身（不是 ECALL+4），
+            // riscv-tests rv64mi-p-scall 的 mtvec_handler 会校验 mepc == ecall_pc
+            csr_.write(CSR_MEPC, instr.pc);
+            const u64 priv = static_cast<u64>(csr_.privilege_mode());
+            csr_.write(CSR_MCAUSE, priv + 8);
             csr_.write(CSR_MTVAL, 0);
             {
                 constexpr u64 MSTATUS_MIE = 1ULL << 3;
                 constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+                constexpr u64 MSTATUS_MPP_MASK = 3ULL << 11;
                 u64 mstatus = csr_.read(CSR_MSTATUS);
                 if (mstatus & MSTATUS_MIE) {
                     mstatus |= MSTATUS_MPIE;
@@ -821,6 +1065,9 @@ void RISCVSimulator::stage_ex() {
                     mstatus &= ~MSTATUS_MPIE;
                 }
                 mstatus &= ~MSTATUS_MIE;
+                // SPEC: 异常/中断进入 M-mode 时 MPP = 旧特权级
+                mstatus = (mstatus & ~MSTATUS_MPP_MASK) |
+                          (priv << 11);
                 csr_.write(CSR_MSTATUS, mstatus);
             }
             {
@@ -830,17 +1077,47 @@ void RISCVSimulator::stage_ex() {
                 flush_decode_ = true;
                 flush_execute_ = true;
             }
+            // trap 处理始终在 M-mode 下执行
+            csr_.set_privilege_mode(PrivilegeMode::Machine);
             pending_ebreak_ = false;
             last_trap_cause_ = TrapCause::Exception;
+            exception_taken_ = true;
             alu_result = 0;
             break;
         }
         case InstructionKind::EBREAK:
-            // EBREAK 走 halt（保留原行为），不重定向到 mtvec
-            pending_ebreak_ = true;
-            halt_reason_ = HaltReason::Ebreak;
-            halt_pc_ = instr.pc;
-            halt_inst_ = instr.raw;
+            // EBREAK 触发断点异常（mcause=3），与 ECALL 类似走 trap 到 mtvec
+            // 而不是直接 halt——riscv-tests 中 sbreak 用例需要测试 trap 路径
+            // 注意：EBREAK 的 mepc 应指向 EBREAK 本身（与 ECALL 不同）
+            csr_.write(CSR_MEPC, instr.pc);
+            csr_.write(CSR_MCAUSE, 3);  // Exception code 3 = Breakpoint
+            csr_.write(CSR_MTVAL, instr.pc);
+            {
+                constexpr u64 MSTATUS_MIE = 1ULL << 3;
+                constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+                constexpr u64 MSTATUS_MPP_MASK = 3ULL << 11;
+                const u64 priv = static_cast<u64>(csr_.privilege_mode());
+                u64 mstatus = csr_.read(CSR_MSTATUS);
+                if (mstatus & MSTATUS_MIE) {
+                    mstatus |= MSTATUS_MPIE;
+                } else {
+                    mstatus &= ~MSTATUS_MPIE;
+                }
+                mstatus &= ~MSTATUS_MIE;
+                mstatus = (mstatus & ~MSTATUS_MPP_MASK) | (priv << 11);
+                csr_.write(CSR_MSTATUS, mstatus);
+            }
+            {
+                u64 mtvec = csr_.read(CSR_MTVEC);
+                branch_taken = true;
+                branch_target = mtvec & ~0x3ULL;
+                flush_decode_ = true;
+                flush_execute_ = true;
+            }
+            csr_.set_privilege_mode(PrivilegeMode::Machine);
+            pending_ebreak_ = false;
+            last_trap_cause_ = TrapCause::Exception;
+            exception_taken_ = true;
             alu_result = 0;
             break;
         case InstructionKind::MRET: {
@@ -854,6 +1131,7 @@ void RISCVSimulator::stage_ex() {
 
             constexpr u64 MSTATUS_MIE = 1ULL << 3;
             constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+            constexpr u64 MSTATUS_MPP_MASK = 3ULL << 11;
             u64 mstatus = csr_.read(CSR_MSTATUS);
             // MIE = MPIE（恢复中断使能）
             if (mstatus & MSTATUS_MPIE) {
@@ -863,9 +1141,96 @@ void RISCVSimulator::stage_ex() {
             }
             // MPIE 置 1（规范要求）
             mstatus |= MSTATUS_MPIE;
-            // MPP 字段保持不变（教学演示简化）
+            // SPEC: mret 后 MPP = U-Mode(0)
+            // 修复点：原代码直接比较 new_priv (mstatus & MPP_MASK) 与特权级枚举值
+            // (0/1/3)，但掩码后的值是 0/0x800/0x1800，永远不会等于 1 或 3。
+            // 需要先把 MPP 字段右移到低 2 位再比较。
+            const u64 mpp = (mstatus & MSTATUS_MPP_MASK) >> 11;
+            mstatus &= ~MSTATUS_MPP_MASK;
             csr_.write(CSR_MSTATUS, mstatus);
+            // 更新特权级：MRET 之后切换到 MPP 指定的模式（U=0, S=1, M=3）
+            if (mpp == static_cast<u64>(PrivilegeMode::Supervisor)) {
+                csr_.set_privilege_mode(PrivilegeMode::Supervisor);
+            } else if (mpp == static_cast<u64>(PrivilegeMode::Machine)) {
+                csr_.set_privilege_mode(PrivilegeMode::Machine);
+            } else {
+                csr_.set_privilege_mode(PrivilegeMode::User);
+            }
 
+            alu_result = 0;
+            break;
+        }
+        case InstructionKind::SRET: {
+            // SRET 仅在 S-Mode 或 M-Mode 下合法
+            if (csr_.privilege_mode() == PrivilegeMode::User) {
+                halted_ = true;
+                halt_reason_ = HaltReason::InvalidInstruction;
+                halt_pc_ = instr.pc;
+                halt_inst_ = instr.raw;
+                alu_result = 0;
+                break;
+            }
+            // mstatus.TSR (Trap SRET) 在 S-mode 下置 1 时，执行 SRET 必须触发
+            // Illegal instruction 异常 (mcause=2)，对应 riscv-tests rv64mi-p-illegal
+            // 测试 2 的 test_tsr 路径 (bad9)。
+            if (csr_.privilege_mode() == PrivilegeMode::Supervisor) {
+                constexpr u64 MSTATUS_TSR = 1ULL << 22;
+                if (csr_.read(CSR_MSTATUS) & MSTATUS_TSR) {
+                    csr_.write(CSR_MEPC, instr.pc);
+                    csr_.write(CSR_MCAUSE, 2);  // Illegal instruction
+                    csr_.write(CSR_MTVAL, instr.raw);
+                    {
+                        constexpr u64 MSTATUS_MIE = 1ULL << 3;
+                        constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+                        constexpr u64 MSTATUS_MPP_MASK = 3ULL << 11;
+                        const u64 priv = static_cast<u64>(csr_.privilege_mode());
+                        u64 mstatus = csr_.read(CSR_MSTATUS);
+                        if (mstatus & MSTATUS_MIE) {
+                            mstatus |= MSTATUS_MPIE;
+                        } else {
+                            mstatus &= ~MSTATUS_MPIE;
+                        }
+                        mstatus &= ~MSTATUS_MIE;
+                        mstatus = (mstatus & ~MSTATUS_MPP_MASK) | (priv << 11);
+                        csr_.write(CSR_MSTATUS, mstatus);
+                    }
+                    {
+                        u64 mtvec = csr_.read(CSR_MTVEC);
+                        branch_taken = true;
+                        branch_target = mtvec & ~0x3ULL;
+                        flush_decode_ = true;
+                        flush_execute_ = true;
+                    }
+                    csr_.set_privilege_mode(PrivilegeMode::Machine);
+                    pending_ebreak_ = false;
+                    last_trap_cause_ = TrapCause::Exception;
+                    exception_taken_ = true;
+                    alu_result = 0;
+                    break;
+                }
+            }
+            constexpr u64 SIE = 1ULL << 1;       // sstatus.SIE
+            constexpr u64 SPIE = 1ULL << 5;      // sstatus.SPIE
+            constexpr u64 SPP_MASK = 1ULL << 8;  // sstatus.SPP
+            u64 mstatus = csr_.read(CSR_MSTATUS);
+            // SIE = SPIE
+            u64 new_sie = (mstatus & SPIE) ? SIE : 0;
+            mstatus = (mstatus & ~SIE) | new_sie;
+            // 先记录 SPP（切换前），再清零
+            const u64 new_priv = (mstatus & SPP_MASK) ? 1ULL : 0ULL;
+            mstatus = (mstatus & ~SPP_MASK) |
+                      (static_cast<u64>(csr_.privilege_mode()) << 8);
+            // SPIE 置 1
+            mstatus |= SPIE;
+            csr_.write(CSR_MSTATUS, mstatus);
+            // 跳转到 SEPC
+            u64 sepc = csr_.read(CSR_SEPC);
+            branch_taken = true;
+            branch_target = sepc;
+            flush_decode_ = true;
+            flush_execute_ = true;
+            // SRET 之后切换到 SPP 指定的模式
+            csr_.set_privilege_mode(new_priv == 0 ? PrivilegeMode::User : PrivilegeMode::Supervisor);
             alu_result = 0;
             break;
         }
@@ -876,6 +1241,81 @@ void RISCVSimulator::stage_ex() {
         case InstructionKind::CSRRSI:
         case InstructionKind::CSRRCI: {
             const u32 csr_addr = static_cast<u32>(instr.imm) & 0xFFFu;
+
+            // 特权级检查：低特权模式访问高特权 CSR → 触发 Illegal instruction 异常 (mcause=2)
+            // CSR 地址布局（0xC00-0xCFF 计数器可由 U 访问；其它高位地址需要对应特权）：
+            //   0x000-0x0FF: U-mode
+            //   0x100-0x1FF: S-mode
+            //   0x200-0x2FF: H-mode (reserved)
+            //   0x300-0x3FF: M-mode
+            //   0x400-0x6FF: reserved
+            //   0x700-0x7FF: Debug/Mnstatus
+            //   0x800-0xAFF: reserved
+            //   0xB00-0xBFF: M-mode counters
+            //   0xC00-0xCFF: U-mode counters
+            //   0xD00-0xEFF: reserved
+            //   0xF00-0xFFF: Machine info
+            const auto priv = csr_.privilege_mode();
+            const bool is_u_counter = (csr_addr >= 0xC00u && csr_addr <= 0xCFFu);
+            const bool requires_m = (csr_addr >= 0x300u && csr_addr <= 0xBFFu) ||
+                                    (csr_addr >= 0xF00u);
+            const bool requires_s_or_m = (csr_addr >= 0x100u && csr_addr <= 0x1FFu) ||
+                                         requires_m;
+            auto trigger_illegal = [&]() {
+                csr_.write(CSR_MEPC, instr.pc);
+                csr_.write(CSR_MCAUSE, 2);  // Exception code 2 = Illegal instruction
+                csr_.write(CSR_MTVAL, instr.raw);
+                {
+                    constexpr u64 MSTATUS_MIE = 1ULL << 3;
+                    constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+                    constexpr u64 MSTATUS_MPP_MASK = 3ULL << 11;
+                    const u64 cur_priv = static_cast<u64>(csr_.privilege_mode());
+                    u64 mstatus = csr_.read(CSR_MSTATUS);
+                    if (mstatus & MSTATUS_MIE) {
+                        mstatus |= MSTATUS_MPIE;
+                    } else {
+                        mstatus &= ~MSTATUS_MPIE;
+                    }
+                    mstatus &= ~MSTATUS_MIE;
+                    mstatus = (mstatus & ~MSTATUS_MPP_MASK) | (cur_priv << 11);
+                    csr_.write(CSR_MSTATUS, mstatus);
+                }
+                {
+                    u64 mtvec = csr_.read(CSR_MTVEC);
+                    branch_taken = true;
+                    branch_target = mtvec & ~0x3ULL;
+                    flush_decode_ = true;
+                    flush_execute_ = true;
+                }
+                csr_.set_privilege_mode(PrivilegeMode::Machine);
+                pending_ebreak_ = false;
+                last_trap_cause_ = TrapCause::Exception;
+                exception_taken_ = true;
+                alu_result = 0;
+            };
+            if (priv == PrivilegeMode::User && requires_s_or_m && !is_u_counter) {
+                trigger_illegal();
+                break;
+            }
+            if (priv == PrivilegeMode::Supervisor && requires_m && !is_u_counter) {
+                trigger_illegal();
+                break;
+            }
+            // mstatus.TVM 在 S-mode 下置 1 时，访问 SATP 必须触发 Illegal instruction 异常
+            // (mcause=2)。对应 riscv-tests rv64mi-p-illegal 测试 2 (bad7 路径)。
+            if (priv == PrivilegeMode::Supervisor && csr_addr == 0x180u) {
+                constexpr u64 MSTATUS_TVM = 1ULL << 20;
+                if (csr_.read(CSR_MSTATUS) & MSTATUS_TVM) {
+                    trigger_illegal();
+                    break;
+                }
+            }
+            // 未实现 CSR：触发非法指令异常
+            if (!csr_.is_implemented(csr_addr)) {
+                trigger_illegal();
+                break;
+            }
+
             const u64 old_val = csr_.read(csr_addr);
             u64 new_val = old_val;
             
@@ -903,14 +1343,52 @@ void RISCVSimulator::stage_ex() {
             break;
         }
         default:
-            // 非法指令不在此处停机，传至 WB 再停机，保证前一条 ECALL/EBREAK 能先提交
+            // 非法指令触发 Illegal instruction 异常（mcause=2），与 ECALL/EBREAK 类似
+            // 走 trap 到 mtvec，而不是直接 halt（riscv-tests 中 illegal 用例需要测试 trap 路径）
+            if (instr.kind == InstructionKind::INVALID || !instr.is_valid()) {
+                csr_.write(CSR_MEPC, instr.pc);
+                csr_.write(CSR_MCAUSE, 2);  // Exception code 2 = Illegal instruction
+                csr_.write(CSR_MTVAL, instr.raw);
+                {
+                    constexpr u64 MSTATUS_MIE = 1ULL << 3;
+                    constexpr u64 MSTATUS_MPIE = 1ULL << 7;
+                    constexpr u64 MSTATUS_MPP_MASK = 3ULL << 11;
+                    const u64 priv = static_cast<u64>(csr_.privilege_mode());
+                    u64 mstatus = csr_.read(CSR_MSTATUS);
+                    if (mstatus & MSTATUS_MIE) {
+                        mstatus |= MSTATUS_MPIE;
+                    } else {
+                        mstatus &= ~MSTATUS_MPIE;
+                    }
+                    mstatus &= ~MSTATUS_MIE;
+                    mstatus = (mstatus & ~MSTATUS_MPP_MASK) | (priv << 11);
+                    csr_.write(CSR_MSTATUS, mstatus);
+                }
+                {
+                    u64 mtvec = csr_.read(CSR_MTVEC);
+                    branch_taken = true;
+                    branch_target = mtvec & ~0x3ULL;
+                    flush_decode_ = true;
+                    flush_execute_ = true;
+                }
+                csr_.set_privilege_mode(PrivilegeMode::Machine);
+                pending_ebreak_ = false;
+                last_trap_cause_ = TrapCause::Exception;
+                exception_taken_ = true;
+            } else {
+                // 其他未识别的非非法指令：保持默认（不跳转）
+                alu_result = 0;
+                branch_taken = false;
+                branch_target = 0;
+            }
             alu_result = 0;
-            branch_taken = false;
-            branch_target = 0;
             break;
     }
 
-    next_ex_mem_.valid = id_ex_.valid;
+    // 异常/中断路径需要阻止当前指令继续推进到 MEM/WB。
+    // 否则会覆盖流水线中前置指令的写回（特别是 JALR 目标 misalign 后 t1 仍要被保留）。
+    // exception_taken_ 在各 trap 分支里被置位。
+    next_ex_mem_.valid = id_ex_.valid && !exception_taken_;
     next_ex_mem_.instr = instr;
     next_ex_mem_.alu_result = alu_result;
     next_ex_mem_.alu_src1 = alu_src1;
@@ -985,6 +1463,14 @@ void RISCVSimulator::stage_mem() {
                     break;
                 default:
                     break;
+            }
+            // riscv-tests 约定：向 tohost (0x80001000) 写入非零值即代表测试结束。
+            // 模拟器需停机，run_riscv_tests 读 a0 判定 PASS/FAIL。
+            if (tohost_address_ != 0 && addr == tohost_address_ && store_data != 0) {
+                halted_ = true;
+                halt_reason_ = HaltReason::EcallExit;
+                halt_pc_ = instr.pc;
+                halt_inst_ = instr.raw;
             }
         }
     }
@@ -1126,6 +1612,17 @@ void RISCVSimulator::stage_wb() {
     }
 
     last_wb_result.actual_wb_en = should_write;
+
+    // ★ ECALL 退出延迟提交：EX 阶段检测到 a7=93 时只置位，
+    // 到 WB 阶段（此时前置指令的写回已完成）才真正停机。
+    // 这样 run_riscv_tests 读取的 a0/寄存器状态是流水线排空后的最终值。
+    if (pending_ecall_exit_) {
+        halted_ = true;
+        halt_reason_ = HaltReason::EcallExit;
+        halt_pc_ = pending_ecall_halt_pc_;
+        halt_inst_ = pending_ecall_halt_inst_;
+        pending_ecall_exit_ = false;
+    }
 
     // ★ ECALL 不再 halt：EX 阶段已触发 trap 重定向，WB 阶段直接通过
     // EBREAK 仍 halt（在 stage_wb 开头的 pending_ebreak_ 分支处理）

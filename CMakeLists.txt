@@ -29,6 +29,11 @@ add_executable(run_riscv_tests src/run_riscv_tests.cpp src/elf_loader.cpp)
 target_include_directories(run_riscv_tests PRIVATE include)
 target_link_libraries(run_riscv_tests PRIVATE riscv_core)
 
+# Debug runner: dump simulator state for a single ELF
+add_executable(debug_test src/debug_test.cpp src/elf_loader.cpp)
+target_include_directories(debug_test PRIVATE include)
+target_link_libraries(debug_test PRIVATE riscv_core)
+
 # WebSocket服务端调用的模拟器
 add_executable(riscv_sim_server src/riscv_sim_server.cpp src/elf_loader.cpp)
 target_include_directories(riscv_sim_server PRIVATE include)

@@ -68,6 +68,11 @@ int run_one(const std::string& elf_path) {
 
     riscv::RISCVSimulator sim;
     sim.load_program(result.binary, result.load_offset);
+    // 解析 ELF 符号表中的 tohost 地址，启用 riscv-tests 退出检测
+    const riscv::u64 tohost = riscv::find_tohost_address(elf_path);
+    if (tohost != 0) {
+        sim.set_tohost_address(tohost);
+    }
     sim.run(MAX_CYCLES_PER_TEST);
 
     const auto& r = sim.registers().raw();
@@ -85,14 +90,14 @@ int run_one(const std::string& elf_path) {
             return 0;
         }
         std::cout << "FAIL (a0=0x" << std::hex << a0 << std::dec << ") " << elf_path << "\n";
+        std::cout << "  [debug] pc=0x" << std::hex << sim.halt_pc() << " inst=0x" << sim.halt_inst()
+                  << " x1=0x" << r[1] << " x2(sp)=0x" << r[2] << " x3(gp)=0x" << r[3]
+                  << " x7=0x" << r[7] << " x14=0x" << r[14] << std::dec << "\n";
         // riscv-tests fail 路径：a0 = (gp<<1)|1，失败子测试号 = (a0-1)>>1
         if (a0 >= 1 && (a0 & 1)) {
             const riscv::u64 subtest = (a0 - 1) >> 1;
-            std::cout << "  [debug] 失败子测试: test_" << subtest
-                      << " | pc=0x" << std::hex << sim.halt_pc() << " inst=0x" << sim.halt_inst()
-                      << " x3(gp)=0x" << r[3] << " x14=0x" << r[14] << " x7=0x" << r[7]
-                      << " x1=0x" << r[1] << " x2(sp)=0x" << r[2] << std::dec << "\n";
-            std::cout << "  -> In dump locate: rv64ui-p-" << stem << ".dump search <test_" << subtest << ">\n";
+            std::cout << "  -> 失败子测试: test_" << subtest
+                      << " | 在 dump 搜索: rv64ui-p-" << stem << ".dump <test_" << subtest << ">\n";
         }
         return 1;
     }

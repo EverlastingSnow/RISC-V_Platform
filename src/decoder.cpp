@@ -188,16 +188,10 @@ DecodedInstruction decode(u32 raw, u64 pc) {
     inst.raw = raw;
     inst.pc = pc;
 
-    if (raw == 0x00000000) {
-        inst.kind = InstructionKind::NOP;
-        inst.format = InstructionFormat::I;
-        inst.opcode = 0b0010011;
-        inst.rd = 0;
-        inst.funct3 = 0b000;
-        inst.rs1 = 0;
-        inst.imm = 0;
-        return inst;
-    }
+    // 重要：不要把 0x00000000 当作 NOP。
+    // RISC-V 规范中 opcode 0b0000000 是保留/非法的，0x00000000 必须视为非法指令。
+    // riscv-tests 用 `.insn 2, 0x0000`（两个 16 位 0x0000 拼成 32 位 0x00000000）
+    // 显式构造非法指令用于测试 illegal-instruction trap 路径。
 
     inst.opcode = raw & 0x7F;
     inst.rd = (raw >> 7) & 0x1F;
@@ -420,6 +414,8 @@ DecodedInstruction decode(u32 raw, u64 pc) {
                 } else if (imm12 == 0x120 && inst.funct3 == 0) {  // SFENCE.VMA
                     inst.kind = InstructionKind::SFENCE_VMA;
                 }
+                // 其他 funct3=0 但 imm12 未识别的指令（如 unimp 0xc0001073）应视为非法指令
+                // 保留 inst.kind = INVALID，让后续默认分支处理（触发 trap）
             } else {
                 inst.imm = static_cast<s32>(imm_csr(raw));  // CSR 地址 0..4095
                 switch (inst.funct3) {

@@ -43,4 +43,8 @@ ElfLoadResult load_elf64(const std::string& path, u64 memory_base = RESET_VECTOR
 // 按 ELF 魔数自动选择 32/64 位加载
 ElfLoadResult load_elf(const std::string& path, u64 memory_base = RESET_VECTOR);
 
+// 从 ELF 的 .symtab + .strtab 中查找名为 `tohost` 的符号地址。
+// riscv-tests 用 tohost 标识测试结束。找不到则返回 0。
+u64 find_tohost_address(const std::string& path);
+
 }  // namespace riscv
