@@ -170,6 +170,13 @@ void RISCVSimulator::reset() {
     halt_reason_ = HaltReason::None;
     halt_pc_ = 0;
     halt_inst_ = 0;
+    stall_fetch_ = false;
+    redirect_ = false;
+    redirect_target_ = 0;
+    flush_decode_ = false;
+    flush_execute_ = false;
+    pending_ebreak_ = false;
+    last_trap_cause_ = TrapCause::None;
 }
 
 void RISCVSimulator::run(u32 cycles) {
@@ -222,28 +229,35 @@ void RISCVSimulator::stage_if() {
         csr_.write(CSR_MEPC, pc_);
         csr_.write(CSR_MCAUSE, cause | (1ULL << 63));
         csr_.write(CSR_MTVAL, 0);
-        
+
         constexpr u64 MSTATUS_MIE = 1ULL << 3;
         constexpr u64 MSTATUS_MPIE = 1ULL << 7;
-        mstatus_val = (mstatus_val & ~MSTATUS_MIE) | ((mstatus_val & MSTATUS_MIE) ? MSTATUS_MPIE : 0);
+        // MIE -> MPIE；MIE 清零（使用 if/else 避免位运算优先级歧义）
+        if (mstatus_val & MSTATUS_MIE) {
+            mstatus_val |= MSTATUS_MPIE;
+        } else {
+            mstatus_val &= ~MSTATUS_MPIE;
+        }
+        mstatus_val &= ~MSTATUS_MIE;
         csr_.write(CSR_MSTATUS, mstatus_val);
-        
+
         u64 mtvec = csr_.read(CSR_MTVEC);
         u64 mtvec_mode = mtvec & 0x3;
         u64 mtvec_base = mtvec & ~0x3ULL;
         u64 target;
-        
+
         if (mtvec_mode == 1) {
             target = mtvec_base + 4 * cause;
         } else {
             target = mtvec_base;
         }
-        
+
+        last_trap_cause_ = TrapCause::Interrupt;
         redirect_ = true;
         redirect_target_ = target;
         flush_decode_ = true;
         flush_execute_ = true;
-        
+
         if_id_ = {};
         id_ex_ = {};
         ex_mem_ = {};
@@ -262,28 +276,34 @@ void RISCVSimulator::stage_if() {
             csr_.write(CSR_MEPC, pc_);
             csr_.write(CSR_MCAUSE, cause | (1ULL << 63));
             csr_.write(CSR_MTVAL, 0);
-            
+
             constexpr u64 MSTATUS_MIE = 1ULL << 3;
             constexpr u64 MSTATUS_MPIE = 1ULL << 7;
-            mstatus_val = (mstatus_val & ~MSTATUS_MIE) | ((mstatus_val & MSTATUS_MIE) ? MSTATUS_MPIE : 0);
+            if (mstatus_val & MSTATUS_MIE) {
+                mstatus_val |= MSTATUS_MPIE;
+            } else {
+                mstatus_val &= ~MSTATUS_MPIE;
+            }
+            mstatus_val &= ~MSTATUS_MIE;
             csr_.write(CSR_MSTATUS, mstatus_val);
-            
+
             u64 mtvec = csr_.read(CSR_MTVEC);
             u64 mtvec_mode = mtvec & 0x3;
             u64 mtvec_base = mtvec & ~0x3ULL;
             u64 target;
-            
+
             if (mtvec_mode == 1) {
                 target = mtvec_base + 4 * cause;
             } else {
                 target = mtvec_base;
             }
-            
+
+            last_trap_cause_ = TrapCause::Interrupt;
             redirect_ = true;
             redirect_target_ = target;
             flush_decode_ = true;
             flush_execute_ = true;
-            
+
             if_id_ = {};
             id_ex_ = {};
             ex_mem_ = {};
@@ -785,23 +805,21 @@ void RISCVSimulator::stage_ex() {
             alu_result = 0;
             break;
         }
-        case InstructionKind::ECALL:
-            pending_ebreak_ = true;
-            halt_reason_ = HaltReason::Ecall;
-            halt_pc_ = instr.pc;
-            halt_inst_ = instr.raw;
-            alu_result = 0;
-            break;
-        case InstructionKind::EBREAK:
-            csr_.write(CSR_MEPC, instr.pc);
-            csr_.write(CSR_MCAUSE, 3);
+        case InstructionKind::ECALL: {
+            // 教学演示：ECALL 走 trap 重定向，与 EBREAK 行为一致
+            // mepc 指向"下一条指令"，mret 后继续执行
+            csr_.write(CSR_MEPC, instr.pc + 4);
+            csr_.write(CSR_MCAUSE, 11);  // Environment call from M-mode
             csr_.write(CSR_MTVAL, 0);
             {
-                u64 mstatus = csr_.read(CSR_MSTATUS);
                 constexpr u64 MSTATUS_MIE = 1ULL << 3;
                 constexpr u64 MSTATUS_MPIE = 1ULL << 7;
-                u64 old_mie = (mstatus & MSTATUS_MIE) ? 1 : 0;
-                mstatus = (mstatus & ~MSTATUS_MPIE) | (old_mie ? MSTATUS_MPIE : 0);
+                u64 mstatus = csr_.read(CSR_MSTATUS);
+                if (mstatus & MSTATUS_MIE) {
+                    mstatus |= MSTATUS_MPIE;
+                } else {
+                    mstatus &= ~MSTATUS_MPIE;
+                }
                 mstatus &= ~MSTATUS_MIE;
                 csr_.write(CSR_MSTATUS, mstatus);
             }
@@ -812,6 +830,17 @@ void RISCVSimulator::stage_ex() {
                 flush_decode_ = true;
                 flush_execute_ = true;
             }
+            pending_ebreak_ = false;
+            last_trap_cause_ = TrapCause::Exception;
+            alu_result = 0;
+            break;
+        }
+        case InstructionKind::EBREAK:
+            // EBREAK 走 halt（保留原行为），不重定向到 mtvec
+            pending_ebreak_ = true;
+            halt_reason_ = HaltReason::Ebreak;
+            halt_pc_ = instr.pc;
+            halt_inst_ = instr.raw;
             alu_result = 0;
             break;
         case InstructionKind::MRET: {
@@ -822,18 +851,21 @@ void RISCVSimulator::stage_ex() {
             flush_execute_ = true;
             next_if_id_ = {};
             stall_fetch_ = false;
-            
-            u64 mstatus = csr_.read(CSR_MSTATUS);
+
             constexpr u64 MSTATUS_MIE = 1ULL << 3;
             constexpr u64 MSTATUS_MPIE = 1ULL << 7;
-            constexpr u64 MSTATUS_MPP = 0x1800;  // bits [12:11]
-            u64 old_mpie = (mstatus & MSTATUS_MPIE) ? 1 : 0;
-            u64 old_mpp = (mstatus >> 11) & 0x3;
-            mstatus = (mstatus & ~MSTATUS_MIE) | (old_mpie ? MSTATUS_MIE : 0);
+            u64 mstatus = csr_.read(CSR_MSTATUS);
+            // MIE = MPIE（恢复中断使能）
+            if (mstatus & MSTATUS_MPIE) {
+                mstatus |= MSTATUS_MIE;
+            } else {
+                mstatus &= ~MSTATUS_MIE;
+            }
+            // MPIE 置 1（规范要求）
             mstatus |= MSTATUS_MPIE;
-            mstatus = (mstatus & ~MSTATUS_MPP) | (old_mpp << 11);
+            // MPP 字段保持不变（教学演示简化）
             csr_.write(CSR_MSTATUS, mstatus);
-            
+
             alu_result = 0;
             break;
         }
@@ -1066,7 +1098,7 @@ void RISCVSimulator::stage_wb() {
         return;
     }
 
-    if (pending_ebreak_ && mem_wb_.instr.kind == InstructionKind::ECALL) {
+    if (pending_ebreak_ && mem_wb_.instr.kind == InstructionKind::EBREAK) {
         halted_ = true;
         pending_ebreak_ = false;
     }
@@ -1092,15 +1124,11 @@ void RISCVSimulator::stage_wb() {
         u64 val = mem_wb_.wb_value;
         regs_.write(mem_wb_.instr.rd, val);
     }
-    
+
     last_wb_result.actual_wb_en = should_write;
 
-    if (mem_wb_.instr.kind == InstructionKind::ECALL) {
-        halted_ = true;
-        halt_reason_ = HaltReason::Ecall;
-        halt_pc_ = mem_wb_.instr.pc;
-        halt_inst_ = mem_wb_.instr.raw;
-    }
+    // ★ ECALL 不再 halt：EX 阶段已触发 trap 重定向，WB 阶段直接通过
+    // EBREAK 仍 halt（在 stage_wb 开头的 pending_ebreak_ 分支处理）
 }
 
 void RISCVSimulator::update_pipeline_registers() {
@@ -1177,6 +1205,15 @@ void RISCVSimulator::set_user_signal_for_id(const std::string& signal_name, bool
 
 void RISCVSimulator::clear_user_signals_for_id() {
     next_id_ex_.user_signals.clear();
+}
+
+void RISCVSimulator::trigger_pending_interrupt(u64 bit) {
+    if (bit >= 64) return;
+    // 教学演示：只设置 MIP[bit]，不自动设置 MIE。
+    // 让学生程序显式 `csrw mie, t0` 打开对应中断使能位，
+    // 体现"中断 pending"与"中断使能"是两个独立概念。
+    u64 mip = csr_.read(CSR_MIP);
+    csr_.write(CSR_MIP, mip | (1ULL << bit));
 }
 
 }  // namespace riscv

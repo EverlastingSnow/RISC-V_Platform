@@ -187,6 +187,18 @@ DecodedInstruction decode(u32 raw, u64 pc) {
     DecodedInstruction inst{};
     inst.raw = raw;
     inst.pc = pc;
+
+    if (raw == 0x00000000) {
+        inst.kind = InstructionKind::NOP;
+        inst.format = InstructionFormat::I;
+        inst.opcode = 0b0010011;
+        inst.rd = 0;
+        inst.funct3 = 0b000;
+        inst.rs1 = 0;
+        inst.imm = 0;
+        return inst;
+    }
+
     inst.opcode = raw & 0x7F;
     inst.rd = (raw >> 7) & 0x1F;
     inst.funct3 = (raw >> 12) & 0x7;
@@ -510,6 +522,7 @@ std::string to_string(InstructionKind kind) {
         case InstructionKind::CSRRWI: return "CSRRWI";
         case InstructionKind::CSRRSI: return "CSRRSI";
         case InstructionKind::CSRRCI: return "CSRRCI";
+        case InstructionKind::NOP: return "NOP";
         case InstructionKind::INVALID: return "INVALID";
         default: return "UNKNOWN";
     }
@@ -518,6 +531,10 @@ std::string to_string(InstructionKind kind) {
 std::string to_asm_string(const DecodedInstruction& instr) {
     if (!instr.is_valid()) {
         return "INVALID";
+    }
+
+    if (instr.kind == InstructionKind::NOP) {
+        return "NOP";
     }
 
     std::string name = to_string(instr.kind);

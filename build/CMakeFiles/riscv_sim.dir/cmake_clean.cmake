@@ -1,9 +1,7 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/riscv_sim.dir/src/main.cpp.obj"
-  "CMakeFiles/riscv_sim.dir/src/main.cpp.obj.d"
-  "libriscv_sim.dll.a"
-  "riscv_sim.exe"
-  "riscv_sim.exe.manifest"
+  "CMakeFiles/riscv_sim.dir/src/main.cpp.o"
+  "CMakeFiles/riscv_sim.dir/src/main.cpp.o.d"
+  "riscv_sim"
   "riscv_sim.pdb"
 )
 

@@ -53,6 +53,20 @@ public:
     [[nodiscard]] bool flush_decode() const { return flush_decode_; }
     [[nodiscard]] bool flush_execute() const { return flush_execute_; }
     [[nodiscard]] u64 next_pc() const { return next_pc_; }
+
+    // Trap 原因枚举：用于教学演示区分中断与异常
+    enum class TrapCause { None, Interrupt, Exception };
+
+    // 触发软件中断入口：仅设置 CSR_MIP 的对应 bit，
+    // MIE 需由程序显式配置（教学意义：区分 pending vs enable）
+    void trigger_pending_interrupt(u64 bit);
+
+    // Trap cause 访问与清零
+    [[nodiscard]] TrapCause last_trap_cause() const { return last_trap_cause_; }
+    void clear_trap_cause() { last_trap_cause_ = TrapCause::None; }
+
+    // CSR 只读访问
+    [[nodiscard]] const CSR& csr() const { return csr_; }
     
     // Pause control for difftest
     void set_waiting_for_input(bool waiting, u64 pc = 0);
@@ -120,6 +134,10 @@ private:
     u64 waiting_pc_{0};
     bool pending_ebreak_{false};
     bool waiting_handled_{false};
+
+    // Trap cause：每次 trap 时由 stage_if / stage_ex 设置，
+    // output_signals_body 输出后由 C++ 端调用 clear_trap_cause() 清零
+    TrapCause last_trap_cause_{TrapCause::None};
 };
 
 }  // namespace riscv

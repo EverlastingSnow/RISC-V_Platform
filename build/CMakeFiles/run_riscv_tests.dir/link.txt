@@ -1,3 +1,1 @@
-"C:\Program Files\CMake\bin\cmake.exe" -E rm -f CMakeFiles\run_riscv_tests.dir/objects.a
-F:\msys64\ucrt64\bin\ar.exe qc CMakeFiles\run_riscv_tests.dir/objects.a @CMakeFiles\run_riscv_tests.dir\objects1.rsp
-F:\msys64\ucrt64\bin\c++.exe -O3 -DNDEBUG -Wl,--whole-archive CMakeFiles\run_riscv_tests.dir/objects.a -Wl,--no-whole-archive -o run_riscv_tests.exe -Wl,--out-implib,librun_riscv_tests.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\run_riscv_tests.dir\linkLibs.rsp
+/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/run_riscv_tests.dir/src/run_riscv_tests.cpp.o CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.o -o run_riscv_tests  libriscv_core.a 

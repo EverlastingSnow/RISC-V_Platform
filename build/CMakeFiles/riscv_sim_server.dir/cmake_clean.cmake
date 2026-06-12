@@ -1,11 +1,9 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.obj"
-  "CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.obj.d"
-  "CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.obj"
-  "CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.obj.d"
-  "libriscv_sim_server.dll.a"
-  "riscv_sim_server.exe"
-  "riscv_sim_server.exe.manifest"
+  "CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.o"
+  "CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.o.d"
+  "CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.o"
+  "CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.o.d"
+  "riscv_sim_server"
   "riscv_sim_server.pdb"
 )
 

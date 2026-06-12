@@ -1,11 +1,9 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.obj"
-  "CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.obj.d"
-  "CMakeFiles/run_riscv_tests.dir/src/run_riscv_tests.cpp.obj"
-  "CMakeFiles/run_riscv_tests.dir/src/run_riscv_tests.cpp.obj.d"
-  "librun_riscv_tests.dll.a"
-  "run_riscv_tests.exe"
-  "run_riscv_tests.exe.manifest"
+  "CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.o"
+  "CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.o.d"
+  "CMakeFiles/run_riscv_tests.dir/src/run_riscv_tests.cpp.o"
+  "CMakeFiles/run_riscv_tests.dir/src/run_riscv_tests.cpp.o.d"
+  "run_riscv_tests"
   "run_riscv_tests.pdb"
 )
 

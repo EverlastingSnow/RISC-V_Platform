@@ -8,16 +8,13 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "E:/platform/RISC-V_Platform/src/elf_loader.cpp" "CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.obj" "gcc" "CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.obj.d"
-  "E:/platform/RISC-V_Platform/src/riscv_sim_server.cpp" "CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.obj" "gcc" "CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.obj.d"
+  "/opt/RISC-V_Platform/src/elf_loader.cpp" "CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.o" "gcc" "CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.o.d"
+  "/opt/RISC-V_Platform/src/riscv_sim_server.cpp" "CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.o" "gcc" "CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.o.d"
   )
 
-# Targets to which this target links which contain Fortran sources.
-set(CMAKE_Fortran_TARGET_LINKED_INFO_FILES
-  )
-
-# Targets to which this target links which contain Fortran sources.
-set(CMAKE_Fortran_TARGET_FORWARD_LINKED_INFO_FILES
+# Targets to which this target links.
+set(CMAKE_TARGET_LINKED_INFO_FILES
+  "/opt/RISC-V_Platform/build/CMakeFiles/riscv_core.dir/DependInfo.cmake"
   )
 
 # Fortran module output directory.

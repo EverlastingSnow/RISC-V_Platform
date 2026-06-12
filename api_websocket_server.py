@@ -8,6 +8,7 @@ import time
 from typing import Optional, Dict, Any
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
+import uuid
 
 import config
 import stats
@@ -16,16 +17,18 @@ print(f"[STATS] stats module imported successfully. File: {stats.__file__}")
 print(f"[CONFIG] config loaded from: {config.__file__}")
 
 PORT = config.WEBSOCKET_PORT
+HOST = os.environ.get("HOST", "0.0.0.0")
 SIM_SERVER_PATH = config.SIM_SERVER_PATH
+MAX_CONCURRENT_SIMULATORS = 100
 
 
 class CppSimulator:
     def __init__(self, exe_path: str = None):
         if exe_path is None:
             base_dir = os.path.dirname(os.path.abspath(__file__))
-            exe_path = os.path.join(base_dir, "build", "riscv_sim_server.exe")
+            exe_path = os.path.join(base_dir, "build", "riscv_sim_server")
             if not os.path.exists(exe_path):
-                exe_path = os.path.join(base_dir, "build", "Debug", "riscv_sim_server.exe")
+                exe_path = os.path.join(base_dir, "build", "Debug", "riscv_sim_server")
         self.exe_path = exe_path
         self.process: Optional[subprocess.Popen] = None
         self.buffer = ""
@@ -74,7 +77,6 @@ class CppSimulator:
                 stripped = line.strip()
                 if stripped:
                     print(f"[DEBUG] C++ stdout: {stripped[:200] if stripped else 'None'}")
-                    # Skip lines that start with [DEBUG - they are debug output, not JSON
                     if stripped.startswith('[DEBUG'):
                         continue
                     buffer += stripped
@@ -236,12 +238,12 @@ class StatsHTTPServer(HTTPServer):
 
 class WebSocketServer:
     def __init__(self):
-        self.sim: Optional[CppSimulator] = None
-        self.run_task: Optional[asyncio.Task] = None
-        self.running = False
-        self.command_lock = asyncio.Lock()
+        self.simulators: Dict[str, CppSimulator] = {}
+        self.running_states: Dict[str, bool] = {}
         stats.init_stats_db()
         self.client_start_times: Dict[str, float] = {}
+        self.session_counter = 0
+        self._lock = asyncio.Lock()
         self._start_http_server()
 
     def _start_http_server(self):
@@ -255,163 +257,203 @@ class WebSocketServer:
         except Exception as e:
             print(f"Failed to start HTTP server on port {HTTP_PORT}: {e}")
 
-    def init_simulator(self) -> bool:
-        self.sim = CppSimulator()
-        return self.sim.start()
+    def create_simulator(self, client_id: str) -> Optional[CppSimulator]:
+        sim = CppSimulator()
+        if sim.start():
+            self.simulators[client_id] = sim
+            print(f"[SESSION] Created simulator for client {client_id}. Total: {len(self.simulators)}")
+            return sim
+        return None
+
+    def destroy_simulator(self, client_id: str):
+        if client_id in self.simulators:
+            self.simulators[client_id].stop()
+            del self.simulators[client_id]
+            print(f"[SESSION] Destroyed simulator for client {client_id}. Remaining: {len(self.simulators)}")
 
     async def handle_client(self, websocket):
-        client_id = str(id(websocket))
+        client_id = str(uuid.uuid4())[:8]
         start_time = time.time()
         duration_recorded = False
         stats.increment_visit()
-        print(f"[STATS] New client connected. Visit count incremented. Current: {stats.get_stats()}")
+
+        print(f"[SESSION] New client {client_id} connected. Total active: {len(self.simulators)}")
+
+        if len(self.simulators) >= MAX_CONCURRENT_SIMULATORS:
+            print(f"[WARNING] Max concurrent simulators reached: {MAX_CONCURRENT_SIMULATORS}")
+            await websocket.send(json.dumps({
+                'status': 'error',
+                'message': f'Server at maximum capacity ({MAX_CONCURRENT_SIMULATORS} users)'
+            }))
+            await websocket.close()
+            return
+
+        if not self.create_simulator(client_id):
+            print(f"[ERROR] Failed to create simulator for client {client_id}")
+            await websocket.send(json.dumps({
+                'status': 'error',
+                'message': 'Failed to initialize simulator'
+            }))
+            await websocket.close()
+            return
+
+        self.running_states[client_id] = False
+
         try:
             async for message in websocket:
-                async with self.command_lock:
-                    try:
-                        data = json.loads(message)
-                        command = data.get('command', '')
+                try:
+                    data = json.loads(message)
+                    command = data.get('command', '')
+                    sim = self.simulators.get(client_id)
 
-                        if command == 'step':
-                            if not self.sim:
-                                response = {'status': 'error', 'message': 'Simulator not initialized'}
-                            else:
-                                print(f"[DEBUG] Sending step command to simulator...")
-                                result = self.sim.send_command("step")
-                                print(f"[DEBUG] Raw result from simulator: {result}")
-                                if result:
-                                    result = result.strip()
-                                    while result and not result.startswith('{'):
-                                        newline_idx = result.find('\n')
-                                        if newline_idx == -1:
-                                            break
-                                        result = result[newline_idx+1:].strip()
-                                    
-                                    if result.startswith('{'):
-                                        try:
-                                            data = json.loads(result)
-                                            print(f"[DEBUG] Parsed data: {data}")
-                                            if data.get('type') == 'need_signal_input':
-                                                print(f"[DEBUG] Received need_signal_input!")
-                                                await websocket.send(json.dumps(data))
-                                                continue
-                                            elif data.get('type') == 'diff_detected':
-                                                await websocket.send(json.dumps(data))
-                                                continue
-                                            elif data.get('type') == 'halted':
-                                                await websocket.send(json.dumps(data))
-                                                continue
-                                            if 'cycle' in data:
-                                                response = {'status': 'ok', 'signals': data}
-                                            else:
-                                                response = {'status': 'ok', 'data': data}
-                                        except json.JSONDecodeError as e:
-                                            print(f"JSON decode error: {e}, result: {result}")
-                                            response = {'status': 'ok'}
-                                    else:
-                                        print(f"[DEBUG] No valid JSON found: {result}")
+                    if command == 'step':
+                        if not sim:
+                            response = {'status': 'error', 'message': 'Simulator not initialized'}
+                        else:
+                            result = sim.send_command("step")
+                            if result:
+                                result = result.strip()
+                                while result and not result.startswith('{'):
+                                    newline_idx = result.find('\n')
+                                    if newline_idx == -1:
+                                        break
+                                    result = result[newline_idx+1:].strip()
+
+                                if result.startswith('{'):
+                                    try:
+                                        parsed_data = json.loads(result)
+                                        if parsed_data.get('type') == 'need_signal_input':
+                                            await websocket.send(json.dumps(parsed_data))
+                                            continue
+                                        elif parsed_data.get('type') == 'diff_detected':
+                                            await websocket.send(json.dumps(parsed_data))
+                                            continue
+                                        elif parsed_data.get('type') == 'halted':
+                                            await websocket.send(json.dumps(parsed_data))
+                                            continue
+                                        if 'cycle' in parsed_data:
+                                            response = {'status': 'ok', 'signals': parsed_data}
+                                        else:
+                                            response = {'status': 'ok', 'data': parsed_data}
+                                    except json.JSONDecodeError:
                                         response = {'status': 'ok'}
                                 else:
-                                    response = {'status': 'error', 'message': 'Failed to step'}
-                            await websocket.send(json.dumps(response))
-
-                        elif command == 'run':
-                            self.running = True
-                            response = {'status': 'ok', 'message': 'Running...'}
-                            await websocket.send(json.dumps(response))
-
-                            while self.running and self.sim:
-                                print(f"[DEBUG] run: sending step...")
-                                result = self.sim.send_command("step")
-                                print(f"[DEBUG] run: received: {result}")
-                                if result:
-                                    try:
-                                        data = json.loads(result)
-                                        if data.get('type') == 'need_signal_input':
-                                            print(f"[DEBUG] run: Received need_signal_input!")
-                                            self.running = False
-                                            await websocket.send(json.dumps(data))
-                                            break
-                                        elif data.get('type') == 'diff_detected':
-                                            self.running = False
-                                            await websocket.send(json.dumps(data))
-                                            break
-                                        elif data.get('type') == 'halted':
-                                            self.running = False
-                                            await websocket.send(json.dumps(data))
-                                            break
-                                        if 'cycle' in data:
-                                            await websocket.send(json.dumps({
-                                                'status': 'update',
-                                                'signals': data
-                                            }))
-                                            if data.get('halted', False):
-                                                self.running = False
-                                                break
-                                    except:
-                                        pass
-                                await asyncio.sleep(0.05)
-
-                        elif command == 'stop':
-                            self.running = False
-                            response = {'status': 'ok', 'message': 'Stopped'}
-                            await websocket.send(json.dumps(response))
-
-                        elif command == 'reset':
-                            if not self.sim:
-                                response = {'status': 'error', 'message': 'Simulator not initialized'}
+                                    response = {'status': 'ok'}
                             else:
-                                self.sim.reset()
-                                signals = self.sim.get_signals()
-                                response = {'status': 'ok', 'message': 'Reset', 'signals': signals}
-                            await websocket.send(json.dumps(response))
+                                response = {'status': 'error', 'message': 'Failed to step'}
+                        await websocket.send(json.dumps(response))
 
-                        elif command == 'load':
-                            filepath = data.get('path', '')
-                            if not self.sim:
-                                if not self.init_simulator():
-                                    response = {'status': 'error', 'message': 'Failed to initialize simulator'}
-                                    await websocket.send(json.dumps(response))
-                                    continue
+                    elif command == 'run':
+                        self.running_states[client_id] = True
+                        response = {'status': 'ok', 'message': 'Running...'}
+                        await websocket.send(json.dumps(response))
 
-                            result = self.sim.send_command(f"load {filepath}")
+                        sim = self.simulators.get(client_id)
+                        while self.running_states.get(client_id, False) and sim:
+                            result = sim.send_command("step")
+                            if result:
+                                try:
+                                    parsed_data = json.loads(result)
+                                    if parsed_data.get('type') == 'need_signal_input':
+                                        self.running_states[client_id] = False
+                                        await websocket.send(json.dumps(parsed_data))
+                                        break
+                                    elif parsed_data.get('type') == 'diff_detected':
+                                        self.running_states[client_id] = False
+                                        await websocket.send(json.dumps(parsed_data))
+                                        break
+                                    elif parsed_data.get('type') == 'halted':
+                                        self.running_states[client_id] = False
+                                        await websocket.send(json.dumps(parsed_data))
+                                        break
+                                    if 'cycle' in parsed_data:
+                                        await websocket.send(json.dumps({
+                                            'status': 'update',
+                                            'signals': parsed_data
+                                        }))
+                                        if parsed_data.get('halted', False):
+                                            self.running_states[client_id] = False
+                                            break
+                                except:
+                                    pass
+                            await asyncio.sleep(0.05)
+
+                    elif command == 'stop':
+                        self.running_states[client_id] = False
+                        response = {'status': 'ok', 'message': 'Stopped'}
+                        await websocket.send(json.dumps(response))
+
+                    elif command == 'trigger_interrupt':
+                        bit = int(data.get('bit', 3))
+                        sim = self.simulators.get(client_id)
+                        if not sim:
+                            response = {'status': 'error', 'message': 'Simulator not initialized'}
+                        else:
+                            result = sim.send_command(f"trigger_interrupt {bit}")
+                            if result:
+                                try:
+                                    response = json.loads(result)
+                                except:
+                                    response = {'status': 'ok', 'message': f'Interrupt {bit} triggered'}
+                                # ★ 触发后立刻拉取最新 signals（C++ 端只在 step/signals 响应里附带 csr 字段），
+                                # 否则前端 mip 仍是触发前的旧值，看不到 0x0 → 0x8 的跳变
+                                latest = sim.get_signals()
+                                if latest:
+                                    response['signals'] = latest
+                            else:
+                                response = {'status': 'error', 'message': 'Failed to trigger interrupt'}
+                        await websocket.send(json.dumps(response))
+
+                    elif command == 'reset':
+                        sim = self.simulators.get(client_id)
+                        if not sim:
+                            response = {'status': 'error', 'message': 'Simulator not initialized'}
+                        else:
+                            sim.reset()
+                            signals = sim.get_signals()
+                            response = {'status': 'ok', 'message': 'Reset', 'signals': signals}
+                        await websocket.send(json.dumps(response))
+
+                    elif command == 'load':
+                        filepath = data.get('path', '')
+                        sim = self.simulators.get(client_id)
+                        if not sim:
+                            response = {'status': 'error', 'message': 'Simulator not initialized'}
+                        else:
+                            result = sim.send_command(f"load {filepath}")
                             if result:
                                 try:
                                     resp_data = json.loads(result)
-                                    if resp_data.get('status') == 'ok':
-                                        response = resp_data  # Use the signals from C++ directly
-                                    else:
-                                        response = resp_data
+                                    response = resp_data
                                 except:
                                     response = {'status': 'ok', 'message': f'Loaded {filepath}'}
                             else:
                                 response = {'status': 'error', 'message': f'Failed to load {filepath}'}
-                            await websocket.send(json.dumps(response))
+                        await websocket.send(json.dumps(response))
 
-                        elif command == 'get_signals':
-                            if not self.sim:
-                                response = {'status': 'error', 'message': 'Simulator not initialized'}
+                    elif command == 'get_signals':
+                        sim = self.simulators.get(client_id)
+                        if not sim:
+                            response = {'status': 'error', 'message': 'Simulator not initialized'}
+                        else:
+                            signals = sim.get_signals()
+                            if signals:
+                                response = {'status': 'ok', 'signals': signals}
                             else:
-                                signals = self.sim.get_signals()
-                                if signals:
-                                    response = {'status': 'ok', 'signals': signals}
-                                else:
-                                    response = {'status': 'error', 'message': 'Failed to get signals'}
-                            await websocket.send(json.dumps(response))
+                                response = {'status': 'error', 'message': 'Failed to get signals'}
+                        await websocket.send(json.dumps(response))
 
-                        elif command == 'enable_difftest':
-                            print(f"[DEBUG] enable_difftest command received: {data}")
-                            signals_str = data.get('signals', '')
-                            shadow_mode = data.get('shadowMode', False)
-                            cmd = 'enable_difftest'
-                            if shadow_mode:
-                                cmd += ' --shadow'
-                            cmd += ' ' + signals_str
-                            print(f"[DEBUG] Sending to C++: '{cmd}'")
-                            
-                            result = self.sim.send_command(cmd)
-                            print(f"[DEBUG] enable_difftest result: {result}")
-                            
+                    elif command == 'enable_difftest':
+                        signals_str = data.get('signals', '')
+                        shadow_mode = data.get('shadowMode', False)
+                        cmd = 'enable_difftest'
+                        if shadow_mode:
+                            cmd += ' --shadow'
+                        cmd += ' ' + signals_str
+
+                        sim = self.simulators.get(client_id)
+                        if sim:
+                            result = sim.send_command(cmd)
                             if result:
                                 try:
                                     resp_data = json.loads(result)
@@ -420,32 +462,40 @@ class WebSocketServer:
                                     response = {'status': 'ok', 'message': f'Difftest enabled: {cmd}'}
                             else:
                                 response = {'status': 'error', 'message': 'Failed to enable difftest'}
-                            await websocket.send(json.dumps(response))
+                        else:
+                            response = {'status': 'error', 'message': 'Simulator not initialized'}
+                        await websocket.send(json.dumps(response))
 
-                        elif command == 'disable_difftest':
-                            result = self.sim.send_command('disable_difftest')
+                    elif command == 'disable_difftest':
+                        sim = self.simulators.get(client_id)
+                        if sim:
+                            result = sim.send_command('disable_difftest')
                             if result:
                                 response = {'status': 'ok', 'message': 'Difftest disabled'}
                             else:
                                 response = {'status': 'error', 'message': 'Failed to disable difftest'}
-                            await websocket.send(json.dumps(response))
+                        else:
+                            response = {'status': 'error', 'message': 'Simulator not initialized'}
+                        await websocket.send(json.dumps(response))
 
-                        elif command == 'set_user_signal':
-                            signal_name = data.get('signalName', '')
-                            value = data.get('value', False)
-                            cmd = f'set_user_signal {signal_name} {"true" if value else "false"}'
-                            result = self.sim.send_command(cmd)
+                    elif command == 'set_user_signal':
+                        signal_name = data.get('signalName', '')
+                        value = data.get('value', False)
+                        cmd = f'set_user_signal {signal_name} {"true" if value else "false"}'
+                        sim = self.simulators.get(client_id)
+                        if sim:
+                            result = sim.send_command(cmd)
                             if result:
                                 try:
                                     resp_data = json.loads(result)
                                     if resp_data.get('type') == 'diff_detected':
-                                        await websocket.send(result)
+                                        await websocket.send(json.dumps(resp_data))
                                     elif resp_data.get('type') == 'need_signal_input':
-                                        await websocket.send(result)
+                                        await websocket.send(json.dumps(resp_data))
                                     elif resp_data.get('type') == 'halted':
-                                        await websocket.send(result)
+                                        await websocket.send(json.dumps(resp_data))
                                     elif resp_data.get('cycle') is not None:
-                                        await websocket.send(result)
+                                        await websocket.send(json.dumps(resp_data))
                                     else:
                                         response = {'status': 'ok', 'message': f'Signal {signal_name} set to {value}'}
                                         await websocket.send(json.dumps(response))
@@ -455,25 +505,33 @@ class WebSocketServer:
                             else:
                                 response = {'status': 'error', 'message': 'Failed to set signal'}
                                 await websocket.send(json.dumps(response))
+                        else:
+                            response = {'status': 'error', 'message': 'Simulator not initialized'}
+                            await websocket.send(json.dumps(response))
 
-                        elif command == 'continue':
-                            result = self.sim.send_command('continue')
+                    elif command == 'continue':
+                        sim = self.simulators.get(client_id)
+                        if sim:
+                            result = sim.send_command('continue')
                             if result:
                                 response = {'status': 'ok', 'message': 'Continuing'}
                             else:
                                 response = {'status': 'error', 'message': 'Failed to continue'}
-                            await websocket.send(json.dumps(response))
+                        else:
+                            response = {'status': 'error', 'message': 'Simulator not initialized'}
+                        await websocket.send(json.dumps(response))
 
-                        elif command == 'load_test':
-                            test_name = data.get('testName', '')
-                            cmd = f'load_test {test_name}'
-                            print(f"[DEBUG] Sending load_test command: '{cmd}'")
-                            result = self.sim.send_command(cmd)
+                    elif command == 'load_test':
+                        test_name = data.get('testName', '')
+                        cmd = f'load_test {test_name}'
+                        sim = self.simulators.get(client_id)
+                        if sim:
+                            result = sim.send_command(cmd)
                             if result:
                                 try:
                                     resp_data = json.loads(result)
                                     if resp_data.get('status') == 'ok':
-                                        signals = self.sim.get_signals()
+                                        signals = sim.get_signals()
                                         response = {'status': 'ok', 'message': resp_data.get('message', f'Loaded test {test_name}'), 'signals': signals}
                                     else:
                                         response = resp_data
@@ -481,52 +539,53 @@ class WebSocketServer:
                                     response = {'status': 'ok', 'message': f'Loaded test {test_name}'}
                             else:
                                 response = {'status': 'error', 'message': f'Failed to load test {test_name}'}
-                            await websocket.send(json.dumps(response))
+                        else:
+                            response = {'status': 'error', 'message': 'Simulator not initialized'}
+                        await websocket.send(json.dumps(response))
 
-                        elif command == 'list_tests':
-                            cmd = 'list_tests'
-                            print(f"[DEBUG] Sending list_tests command")
-                            result = self.sim.send_command(cmd)
+                    elif command == 'list_tests':
+                        sim = self.simulators.get(client_id)
+                        if sim:
+                            result = sim.send_command('list_tests')
                             if result:
                                 try:
                                     resp_data = json.loads(result)
-                                    if resp_data.get('status') == 'ok':
-                                        response = resp_data
-                                    else:
-                                        response = {'status': 'ok', 'tests': []}
+                                    response = resp_data
                                 except:
                                     response = {'status': 'ok', 'tests': []}
                             else:
                                 response = {'status': 'ok', 'tests': []}
-                            await websocket.send(json.dumps(response))
+                        else:
+                            response = {'status': 'ok', 'tests': []}
+                        await websocket.send(json.dumps(response))
 
-                        elif command == 'list_elf_tests':
-                            cmd = 'list_elf_tests'
-                            print(f"[DEBUG] Sending list_elf_tests command")
-                            result = self.sim.send_command(cmd)
+                    elif command == 'list_elf_tests':
+                        sim = self.simulators.get(client_id)
+                        if sim:
+                            result = sim.send_command('list_elf_tests')
                             if result:
                                 try:
                                     resp_data = json.loads(result)
-                                    if resp_data.get('status') == 'ok':
-                                        response = resp_data
-                                    else:
-                                        response = {'status': 'ok', 'elfTests': []}
+                                    response = resp_data
                                 except:
                                     response = {'status': 'ok', 'elfTests': []}
                             else:
                                 response = {'status': 'ok', 'elfTests': []}
-                            await websocket.send(json.dumps(response))
+                        else:
+                            response = {'status': 'ok', 'elfTests': []}
+                        await websocket.send(json.dumps(response))
 
-                        elif command == 'load_elf_test':
-                            test_name = data.get('testName', '')
-                            cmd = f'load_elf_test {test_name}'
-                            print(f"[DEBUG] Sending load_elf_test command: '{cmd}'")
-                            result = self.sim.send_command(cmd)
+                    elif command == 'load_elf_test':
+                        test_name = data.get('testName', '')
+                        cmd = f'load_elf_test {test_name}'
+                        sim = self.simulators.get(client_id)
+                        if sim:
+                            result = sim.send_command(cmd)
                             if result:
                                 try:
                                     resp_data = json.loads(result)
                                     if resp_data.get('status') == 'ok':
-                                        signals = self.sim.get_signals()
+                                        signals = sim.get_signals()
                                         response = {'status': 'ok', 'message': resp_data.get('message', f'Loaded ELF test {test_name}'), 'signals': signals}
                                     else:
                                         response = resp_data
@@ -534,88 +593,102 @@ class WebSocketServer:
                                     response = {'status': 'ok', 'message': f'Loaded ELF test {test_name}'}
                             else:
                                 response = {'status': 'error', 'message': f'Failed to load ELF test {test_name}'}
-                            await websocket.send(json.dumps(response))
+                        else:
+                            response = {'status': 'error', 'message': 'Simulator not initialized'}
+                        await websocket.send(json.dumps(response))
 
-                        elif command == 'load_elf_binary':
-                            elf_base64 = data.get('elf_data', '')
-                            if not elf_base64:
-                                response = {'status': 'error', 'message': 'No ELF data provided'}
-                                await websocket.send(json.dumps(response))
-                            else:
-                                import base64
-                                import tempfile
-                                import os
-                                try:
-                                    elf_bytes = base64.b64decode(elf_base64)
-                                    print(f"[DEBUG] ELF decoded, size: {len(elf_bytes)} bytes")
-                                    print(f"[DEBUG] ELF header: {elf_bytes[:16].hex()}")
-                                    temp_elf = tempfile.NamedTemporaryFile(delete=False, suffix='.elf')
-                                    temp_elf.write(elf_bytes)
-                                    temp_elf.close()
-                                    print(f"[DEBUG] ELF saved to: {temp_elf.name}")
+                    elif command == 'load_elf_binary':
+                        elf_base64 = data.get('elf_data', '')
+                        if not elf_base64:
+                            response = {'status': 'error', 'message': 'No ELF data provided'}
+                            await websocket.send(json.dumps(response))
+                        else:
+                            import base64
+                            import tempfile
+                            try:
+                                elf_bytes = base64.b64decode(elf_base64)
+                                temp_elf = tempfile.NamedTemporaryFile(delete=False, suffix='.elf')
+                                temp_elf.write(elf_bytes)
+                                temp_elf.close()
+
+                                sim = self.simulators.get(client_id)
+                                if sim:
                                     cmd = f'load {temp_elf.name}'
-                                    print(f"[DEBUG] Sending load command: {cmd}")
-                                    result = self.sim.send_command(cmd)
-                                    print(f"[DEBUG] load result: {result}")
+                                    result = sim.send_command(cmd)
                                     os.unlink(temp_elf.name)
                                     if result:
                                         try:
                                             resp_data = json.loads(result)
                                             if resp_data.get('status') == 'ok':
-                                                signals = self.sim.get_signals()
+                                                signals = sim.get_signals()
                                                 response = {'status': 'ok', 'message': 'Loaded ELF binary', 'signals': signals}
                                             else:
                                                 response = resp_data
-                                        except Exception as e:
-                                            print(f"[DEBUG] parse error: {e}")
+                                        except:
                                             response = {'status': 'ok', 'message': 'Loaded ELF binary'}
                                     else:
-                                        response = {'status': 'error', 'message': 'Failed to load ELF - no response'}
-                                except Exception as e:
-                                    response = {'status': 'error', 'message': f'Failed to decode ELF: {str(e)}'}
+                                        response = {'status': 'error', 'message': 'Failed to load ELF'}
+                                else:
+                                    response = {'status': 'error', 'message': 'Simulator not initialized'}
+                                await websocket.send(json.dumps(response))
+                            except Exception as e:
+                                response = {'status': 'error', 'message': f'Failed to decode ELF: {str(e)}'}
                                 await websocket.send(json.dumps(response))
 
-                        elif command == 'get_registers':
-                            if not self.sim:
-                                response = {'status': 'error', 'message': 'Simulator not initialized'}
-                            else:
-                                registers = self.sim.get_registers()
-                                if registers:
-                                    response = {'status': 'ok', 'registers': registers}
-                                else:
-                                    response = {'status': 'error', 'message': 'Failed to get registers'}
-                            await websocket.send(json.dumps(response))
-
+                    elif command == 'get_registers':
+                        sim = self.simulators.get(client_id)
+                        if not sim:
+                            response = {'status': 'error', 'message': 'Simulator not initialized'}
                         else:
-                            response = {'status': 'error', 'message': 'Unknown command'}
-                            await websocket.send(json.dumps(response))
+                            registers = sim.get_registers()
+                            if registers:
+                                response = {'status': 'ok', 'registers': registers}
+                            else:
+                                response = {'status': 'error', 'message': 'Failed to get registers'}
+                        await websocket.send(json.dumps(response))
 
-                    except json.JSONDecodeError:
-                        response = {'status': 'error', 'message': 'Invalid JSON'}
+                    else:
+                        response = {'status': 'error', 'message': 'Unknown command'}
                         await websocket.send(json.dumps(response))
-                    except Exception as e:
-                        response = {'status': 'error', 'message': str(e)}
-                        await websocket.send(json.dumps(response))
+
+                except json.JSONDecodeError:
+                    response = {'status': 'error', 'message': 'Invalid JSON'}
+                    await websocket.send(json.dumps(response))
+                except Exception as e:
+                    response = {'status': 'error', 'message': str(e)}
+                    await websocket.send(json.dumps(response))
+
         except websockets.exceptions.ConnectionClosed:
-            self.running = False
+            print(f"[SESSION] Client {client_id} disconnected")
         finally:
+            self.running_states[client_id] = False
+            self.destroy_simulator(client_id)
+            if client_id in self.running_states:
+                del self.running_states[client_id]
+
             if not duration_recorded:
                 duration_recorded = True
                 duration = int(time.time() - start_time)
                 if duration > 0:
                     stats.add_duration(duration)
                     stats.flush_all()
-                    print(f"[STATS] Client disconnected. Duration: {duration}s. Current: {stats.get_stats()}")
+                    print(f"[STATS] Client {client_id} session duration: {duration}s. Active sessions: {len(self.simulators)}")
 
     async def start(self):
-        print(f"Initializing C++ simulator...")
-        if not self.init_simulator():
-            print("Warning: Failed to initialize simulator. Client must send 'load' command first.")
+        print(f"[SERVER] WebSocket server initializing on ws://{HOST}:{PORT}")
+        print(f"[SERVER] Max concurrent simulators: {MAX_CONCURRENT_SIMULATORS}")
+        print(f"[SERVER] Each user gets an independent simulator instance")
 
-        async with websockets.serve(self.handle_client, "localhost", PORT):
-            print(f"WebSocket server running on ws://localhost:{PORT}")
-            print(f"Simulator executable: {self.sim.exe_path if self.sim else 'N/A'}")
+        async with websockets.serve(self.handle_client, HOST, PORT):
+            print(f"[SERVER] WebSocket server running on ws://{HOST}:{PORT}")
             await asyncio.Future()
+
+    async def shutdown(self):
+        print("[SERVER] Shutting down all simulators...")
+        async with self._lock:
+            for client_id in list(self.simulators.keys()):
+                self.destroy_simulator(client_id)
+        print("[SERVER] All simulators stopped")
 
 
 if __name__ == "__main__":
@@ -623,6 +696,5 @@ if __name__ == "__main__":
     try:
         asyncio.run(server.start())
     except KeyboardInterrupt:
-        print("\nShutting down...")
-        if server.sim:
-            server.sim.stop()
+        print("\n[SERVER] Shutting down...")
+        asyncio.run(server.shutdown())

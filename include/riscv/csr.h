@@ -10,6 +10,7 @@ constexpr u32 CSR_MTVAL = 0x343;
 constexpr u32 CSR_MTVEC = 0x305;
 constexpr u32 CSR_MSTATUS = 0x300;
 constexpr u32 CSR_MIE = 0x304;
+constexpr u32 CSR_MIP = 0x344;
 constexpr u32 CSR_STP = 0x5B;
 
 constexpr u32 CSR_SSTATUS = 0x100;

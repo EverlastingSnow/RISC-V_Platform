@@ -1,62 +1,52 @@
 [
 {
-  "directory": "E:/platform/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\c++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\memory.cpp.obj -c E:\\platform\\RISC-V_Platform\\src\\memory.cpp",
-  "file": "E:/platform/RISC-V_Platform/src/memory.cpp",
-  "output": "CMakeFiles/riscv_core.dir/src/memory.cpp.obj"
+  "directory": "/opt/RISC-V_Platform/build",
+  "command": "/usr/bin/c++  -I/opt/RISC-V_Platform/include -O3 -DNDEBUG -fPIC -std=gnu++20 -o CMakeFiles/riscv_core.dir/src/memory.cpp.o -c /opt/RISC-V_Platform/src/memory.cpp",
+  "file": "/opt/RISC-V_Platform/src/memory.cpp"
 },
 {
-  "directory": "E:/platform/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\c++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\register_file.cpp.obj -c E:\\platform\\RISC-V_Platform\\src\\register_file.cpp",
-  "file": "E:/platform/RISC-V_Platform/src/register_file.cpp",
-  "output": "CMakeFiles/riscv_core.dir/src/register_file.cpp.obj"
+  "directory": "/opt/RISC-V_Platform/build",
+  "command": "/usr/bin/c++  -I/opt/RISC-V_Platform/include -O3 -DNDEBUG -fPIC -std=gnu++20 -o CMakeFiles/riscv_core.dir/src/register_file.cpp.o -c /opt/RISC-V_Platform/src/register_file.cpp",
+  "file": "/opt/RISC-V_Platform/src/register_file.cpp"
 },
 {
-  "directory": "E:/platform/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\c++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\decoder.cpp.obj -c E:\\platform\\RISC-V_Platform\\src\\decoder.cpp",
-  "file": "E:/platform/RISC-V_Platform/src/decoder.cpp",
-  "output": "CMakeFiles/riscv_core.dir/src/decoder.cpp.obj"
+  "directory": "/opt/RISC-V_Platform/build",
+  "command": "/usr/bin/c++  -I/opt/RISC-V_Platform/include -O3 -DNDEBUG -fPIC -std=gnu++20 -o CMakeFiles/riscv_core.dir/src/decoder.cpp.o -c /opt/RISC-V_Platform/src/decoder.cpp",
+  "file": "/opt/RISC-V_Platform/src/decoder.cpp"
 },
 {
-  "directory": "E:/platform/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\c++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\csr.cpp.obj -c E:\\platform\\RISC-V_Platform\\src\\csr.cpp",
-  "file": "E:/platform/RISC-V_Platform/src/csr.cpp",
-  "output": "CMakeFiles/riscv_core.dir/src/csr.cpp.obj"
+  "directory": "/opt/RISC-V_Platform/build",
+  "command": "/usr/bin/c++  -I/opt/RISC-V_Platform/include -O3 -DNDEBUG -fPIC -std=gnu++20 -o CMakeFiles/riscv_core.dir/src/csr.cpp.o -c /opt/RISC-V_Platform/src/csr.cpp",
+  "file": "/opt/RISC-V_Platform/src/csr.cpp"
 },
 {
-  "directory": "E:/platform/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\c++.exe  @CMakeFiles/riscv_core.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++20 -o CMakeFiles\\riscv_core.dir\\src\\simulator.cpp.obj -c E:\\platform\\RISC-V_Platform\\src\\simulator.cpp",
-  "file": "E:/platform/RISC-V_Platform/src/simulator.cpp",
-  "output": "CMakeFiles/riscv_core.dir/src/simulator.cpp.obj"
+  "directory": "/opt/RISC-V_Platform/build",
+  "command": "/usr/bin/c++  -I/opt/RISC-V_Platform/include -O3 -DNDEBUG -fPIC -std=gnu++20 -o CMakeFiles/riscv_core.dir/src/simulator.cpp.o -c /opt/RISC-V_Platform/src/simulator.cpp",
+  "file": "/opt/RISC-V_Platform/src/simulator.cpp"
 },
 {
-  "directory": "E:/platform/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\c++.exe  @CMakeFiles/riscv_sim.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++20 -o CMakeFiles\\riscv_sim.dir\\src\\main.cpp.obj -c E:\\platform\\RISC-V_Platform\\src\\main.cpp",
-  "file": "E:/platform/RISC-V_Platform/src/main.cpp",
-  "output": "CMakeFiles/riscv_sim.dir/src/main.cpp.obj"
+  "directory": "/opt/RISC-V_Platform/build",
+  "command": "/usr/bin/c++  -I/opt/RISC-V_Platform/include -O3 -DNDEBUG -fPIE -std=gnu++20 -o CMakeFiles/riscv_sim.dir/src/main.cpp.o -c /opt/RISC-V_Platform/src/main.cpp",
+  "file": "/opt/RISC-V_Platform/src/main.cpp"
 },
 {
-  "directory": "E:/platform/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\c++.exe  @CMakeFiles/run_riscv_tests.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++20 -o CMakeFiles\\run_riscv_tests.dir\\src\\run_riscv_tests.cpp.obj -c E:\\platform\\RISC-V_Platform\\src\\run_riscv_tests.cpp",
-  "file": "E:/platform/RISC-V_Platform/src/run_riscv_tests.cpp",
-  "output": "CMakeFiles/run_riscv_tests.dir/src/run_riscv_tests.cpp.obj"
+  "directory": "/opt/RISC-V_Platform/build",
+  "command": "/usr/bin/c++  -I/opt/RISC-V_Platform/include -O3 -DNDEBUG -fPIE -std=gnu++20 -o CMakeFiles/run_riscv_tests.dir/src/run_riscv_tests.cpp.o -c /opt/RISC-V_Platform/src/run_riscv_tests.cpp",
+  "file": "/opt/RISC-V_Platform/src/run_riscv_tests.cpp"
 },
 {
-  "directory": "E:/platform/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\c++.exe  @CMakeFiles/run_riscv_tests.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++20 -o CMakeFiles\\run_riscv_tests.dir\\src\\elf_loader.cpp.obj -c E:\\platform\\RISC-V_Platform\\src\\elf_loader.cpp",
-  "file": "E:/platform/RISC-V_Platform/src/elf_loader.cpp",
-  "output": "CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.obj"
+  "directory": "/opt/RISC-V_Platform/build",
+  "command": "/usr/bin/c++  -I/opt/RISC-V_Platform/include -O3 -DNDEBUG -fPIE -std=gnu++20 -o CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.o -c /opt/RISC-V_Platform/src/elf_loader.cpp",
+  "file": "/opt/RISC-V_Platform/src/elf_loader.cpp"
 },
 {
-  "directory": "E:/platform/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\c++.exe  @CMakeFiles/riscv_sim_server.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++20 -o CMakeFiles\\riscv_sim_server.dir\\src\\riscv_sim_server.cpp.obj -c E:\\platform\\RISC-V_Platform\\src\\riscv_sim_server.cpp",
-  "file": "E:/platform/RISC-V_Platform/src/riscv_sim_server.cpp",
-  "output": "CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.obj"
+  "directory": "/opt/RISC-V_Platform/build",
+  "command": "/usr/bin/c++  -I/opt/RISC-V_Platform/include -O3 -DNDEBUG -fPIE -std=gnu++20 -o CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.o -c /opt/RISC-V_Platform/src/riscv_sim_server.cpp",
+  "file": "/opt/RISC-V_Platform/src/riscv_sim_server.cpp"
 },
 {
-  "directory": "E:/platform/RISC-V_Platform/build",
-  "command": "F:\\msys64\\ucrt64\\bin\\c++.exe  @CMakeFiles/riscv_sim_server.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++20 -o CMakeFiles\\riscv_sim_server.dir\\src\\elf_loader.cpp.obj -c E:\\platform\\RISC-V_Platform\\src\\elf_loader.cpp",
-  "file": "E:/platform/RISC-V_Platform/src/elf_loader.cpp",
-  "output": "CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.obj"
+  "directory": "/opt/RISC-V_Platform/build",
+  "command": "/usr/bin/c++  -I/opt/RISC-V_Platform/include -O3 -DNDEBUG -fPIE -std=gnu++20 -o CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.o -c /opt/RISC-V_Platform/src/elf_loader.cpp",
+  "file": "/opt/RISC-V_Platform/src/elf_loader.cpp"
 }
 ]

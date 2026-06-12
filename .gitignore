@@ -1,2 +1,4 @@
 /isa/
 /xpack-riscv-none-elf-gcc-15.2.0-1/
+/build/
+/node_modules/

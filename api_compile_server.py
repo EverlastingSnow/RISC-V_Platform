@@ -92,13 +92,13 @@ class CompileRequestHandler(http.server.SimpleHTTPRequestHandler):
         try:
             source_file.write_text(source_code, encoding='utf-8')
 
-            riscv_gcc = Path(config.RISCV_TOOLCHAIN_PATH) / 'riscv-none-elf-gcc.exe'
+            riscv_gcc = Path(config.RISCV_TOOLCHAIN_PATH) / 'riscv-none-elf-gcc'
             if not riscv_gcc.exists():
-                riscv_gcc = Path(config.RISCV_TOOLCHAIN_PATH) / 'riscv-none-elf-gcc'
+                riscv_gcc = Path(config.RISCV_TOOLCHAIN_PATH) / 'riscv-none-elf-gcc.exe'
 
-            objcopy = riscv_gcc.parent / 'riscv-none-elf-objcopy.exe'
+            objcopy = riscv_gcc.parent / 'riscv-none-elf-objcopy'
             if not objcopy.exists():
-                objcopy = riscv_gcc.parent / 'riscv-none-elf-objcopy'
+                objcopy = riscv_gcc.parent / 'riscv-none-elf-objcopy.exe'
 
             linker_script = Path(config.LINKER_SCRIPT)
             start_file = Path(config.START_FILE)

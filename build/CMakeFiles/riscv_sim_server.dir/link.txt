@@ -1,3 +1,1 @@
-"C:\Program Files\CMake\bin\cmake.exe" -E rm -f CMakeFiles\riscv_sim_server.dir/objects.a
-F:\msys64\ucrt64\bin\ar.exe qc CMakeFiles\riscv_sim_server.dir/objects.a @CMakeFiles\riscv_sim_server.dir\objects1.rsp
-F:\msys64\ucrt64\bin\c++.exe -O3 -DNDEBUG -Wl,--whole-archive CMakeFiles\riscv_sim_server.dir/objects.a -Wl,--no-whole-archive -o riscv_sim_server.exe -Wl,--out-implib,libriscv_sim_server.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\riscv_sim_server.dir\linkLibs.rsp
+/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/riscv_sim_server.dir/src/riscv_sim_server.cpp.o CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.o -o riscv_sim_server  libriscv_core.a 

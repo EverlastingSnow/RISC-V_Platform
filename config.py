@@ -18,7 +18,7 @@ STATS_PORT = int(os.environ.get("STATS_PORT", 8082))
 
 SIM_SERVER_PATH = os.environ.get("SIM_SERVER_PATH")
 if SIM_SERVER_PATH is None:
-    for exe_name in ["riscv_sim_server.exe", "riscv_sim_server"]:
+    for exe_name in ["riscv_sim_server", "riscv_sim_server.exe"]:
         sim_path = BUILD_DIR / exe_name
         if sim_path.exists():
             SIM_SERVER_PATH = str(sim_path)

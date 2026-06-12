@@ -99,6 +99,7 @@ enum class InstructionKind {
     CSRRWI,
     CSRRSI,
     CSRRCI,
+    NOP,
     INVALID,
 };
 

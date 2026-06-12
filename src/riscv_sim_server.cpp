@@ -224,8 +224,8 @@ bool is_signal_relevant(const riscv::DecodedInstruction& instr, const std::strin
         return false;
     }
 
-    // INVALID instructions don't require signal input
-    if (instr.kind == riscv::InstructionKind::INVALID) {
+    // INVALID and NOP instructions don't require signal input
+    if (instr.kind == riscv::InstructionKind::INVALID || instr.kind == riscv::InstructionKind::NOP) {
         return false;
     }
 
@@ -470,6 +470,7 @@ void output_signals_body(riscv::RISCVSimulator& sim) {
     std::string id_ex_asm = id_ex.valid ? riscv::to_asm_string(id_ex_instr) : "NOP";
     riscv::u32 id_ex_src1_raddr = id_ex.valid && uses_rs1(id_ex_instr.kind) ? id_ex_instr.rs1 : 0;
     riscv::u32 id_ex_src2_raddr = id_ex.valid && uses_rs2(id_ex_instr.kind) ? id_ex_instr.rs2 : 0;
+    riscv::u32 id_ex_rd_addr = id_ex.valid && id_ex_instr.writes_rd() ? id_ex_instr.rd : 0;
 
     std::cout << ",\"id_ex\":{"
               << "\"pc\":\"0x" << std::hex << (id_ex.valid ? id_ex.instr.pc : 0) << std::dec << "\","
@@ -478,6 +479,8 @@ void output_signals_body(riscv::RISCVSimulator& sim) {
               << "\"src1_rdata\":\"0x" << std::hex << (id_ex.valid ? id_ex.rs1_value : 0) << std::dec << "\","
               << "\"src2_raddr\":" << id_ex_src2_raddr << ","
               << "\"src2_rdata\":\"0x" << std::hex << (id_ex.valid ? id_ex.rs2_value : 0) << std::dec << "\","
+              << "\"rd_addr\":" << id_ex_rd_addr << ","
+            //   << "\"rd_data\":\"0x" << std::hex << (id_ex.valid ? id_ex.instr.imm : 0) << std::dec << "\","
               << "\"imm\":\"0x" << std::hex << (id_ex.valid ? id_ex.instr.imm : 0) << std::dec << "\","
               << "\"instruction\":\"" << (id_ex.valid ? riscv::to_string(id_ex_instr.kind) : "NONE") << "\","
               << "\"asm\":\"" << id_ex_asm << "\""
@@ -579,6 +582,25 @@ void output_signals_body(riscv::RISCVSimulator& sim) {
             std::cout << ",\"halt_reason\":\"other\"";
         }
     }
+
+    // ★ 新增：trap 标志位（区分异常与中断）
+    std::cout << ",\"trap_taken\":" << (sim.last_trap_cause() == riscv::RISCVSimulator::TrapCause::Exception ? "true" : "false");
+    std::cout << ",\"interrupt_taken\":" << (sim.last_trap_cause() == riscv::RISCVSimulator::TrapCause::Interrupt ? "true" : "false");
+
+    // ★ 新增：CSR 状态输出（教学演示 trap 处理流程）
+    std::cout << ",\"csr\":{"
+              << "\"mtvec\":\"0x" << std::hex << sim.csr().read(0x305) << std::dec << "\","
+              << "\"mepc\":\"0x" << std::hex << sim.csr().read(0x341) << std::dec << "\","
+              << "\"mcause\":\"0x" << std::hex << sim.csr().read(0x342) << std::dec << "\","
+              << "\"mtval\":\"0x" << std::hex << sim.csr().read(0x343) << std::dec << "\","
+              << "\"mstatus\":\"0x" << std::hex << sim.csr().read(0x300) << std::dec << "\","
+              << "\"mie\":\"0x" << std::hex << sim.csr().read(0x304) << std::dec << "\","
+              << "\"mip\":\"0x" << std::hex << sim.csr().read(0x344) << std::dec << "\""
+              << "}";
+
+    // ★ 每次输出后立即清零 trap_cause，
+    // 保证前端每个 cycle 看到的 trap_taken 只反映本 cycle 发生的 trap
+    sim.clear_trap_cause();
 }
 
 void output_signals(riscv::RISCVSimulator& sim, bool use_shadow = false) {
@@ -1016,6 +1038,17 @@ int main() {
             g_difftest.waiting_for_input = false;
             g_difftest.user_signals.clear();
             std::cout << "{\"status\":\"ok\",\"message\":\"Signal input skipped\"}" << std::endl;
+
+        } else if (cmd == "trigger_interrupt") {
+            // 教学演示：触发软件中断（仅设置 MIP，不自动设置 MIE）
+            riscv::u64 bit = 0;
+            iss >> bit;
+            if (sim) {
+                sim->trigger_pending_interrupt(bit);
+                std::cout << "{\"status\":\"ok\",\"message\":\"Triggered interrupt bit " << bit << "\"}" << std::endl;
+            } else {
+                std::cout << "{\"status\":\"error\",\"message\":\"Simulator not initialized\"}" << std::endl;
+            }
 
         } else if (cmd == "continue") {
             g_difftest.diff_detected = false;
