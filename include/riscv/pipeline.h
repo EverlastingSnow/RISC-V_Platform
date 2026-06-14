@@ -53,6 +53,7 @@ struct EXMEM {
     bool csr_write{false};
     u32 csr_addr{0};
     u64 csr_new_val{0};
+    bool trap_taken{false};  // true = this is a trap, skip MEM load/store
     UserControlSignals user_signals{};
 };
 

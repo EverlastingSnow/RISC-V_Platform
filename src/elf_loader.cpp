@@ -391,6 +391,33 @@ ElfLoadResult load_elf(const std::string& path, u64 memory_base) {
     return out;
 }
 
+ElfLoadResult load_raw_binary(const std::string& path) {
+    ElfLoadResult out;
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (!file) {
+        out.error = "无法打开文件: " + path;
+        return out;
+    }
+    const std::streamsize file_size = file.tellg();
+    if (file_size < 0) {
+        out.error = "无法获取文件大小: " + path;
+        return out;
+    }
+    file.seekg(std::ios_base::beg);
+    out.binary.assign(static_cast<std::size_t>(file_size), 0);
+    if (file_size > 0) {
+        file.read(reinterpret_cast<char*>(out.binary.data()), file_size);
+        if (file.gcount() != file_size) {
+            out.error = "读取文件失败: " + path;
+            return out;
+        }
+    }
+    // 裸二进制按 lab9 约定：整体映射到 memory_base 起始
+    out.load_offset = 0;
+    out.success = true;
+    return out;
+}
+
 namespace {
 
 // 64 位符号表项

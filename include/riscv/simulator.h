@@ -156,8 +156,11 @@ private:
     // output_signals_body 输出后由 C++ 端调用 clear_trap_cause() 清零
     TrapCause last_trap_cause_{TrapCause::None};
 
-    // riscv-tests 退出协议：tohost 内存地址
-    u64 tohost_address_{0};
+    // riscv-tests 退出协议：tohost 内存地址。
+    // 默认采用 riscv-tests env 链接脚本约定的 0x80001000，
+    // 这样前端的汇编演示（无 ELF 符号表）也能通过写 tohost 正常停机；
+    // run_riscv_tests / difftest_runner 若解析到 ELF 符号表会覆盖此值。
+    u64 tohost_address_{0x80001000ULL};
 };
 
 }  // namespace riscv

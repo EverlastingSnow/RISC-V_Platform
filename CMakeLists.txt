@@ -39,4 +39,17 @@ add_executable(riscv_sim_server src/riscv_sim_server.cpp src/elf_loader.cpp)
 target_include_directories(riscv_sim_server PRIVATE include)
 target_link_libraries(riscv_sim_server PRIVATE riscv_core)
 
+# === Difftest：与 Ciliphen/riscv-lab 的 C++ 参考模型锁步对比 ===
+# 1) 把 ciliphen 的头文件集合编译为一个静态库
+add_library(ciliphen_ref STATIC src/ciliphen_ref.cpp src/elf_loader.cpp)
+# ciliphen 头文件之间的相对 include 需要 src/ciliphen 在 include 路径中
+# 同时 elf_loader.cpp 需要 include/ 目录
+target_include_directories(ciliphen_ref PUBLIC src include)
+target_compile_options(ciliphen_ref PRIVATE -Wno-unused-variable -Wno-unused-but-set-variable)
+
+# 2) difftest_runner 可执行
+add_executable(difftest_runner src/difftest_runner.cpp)
+target_include_directories(difftest_runner PRIVATE include)
+target_link_libraries(difftest_runner PRIVATE riscv_core ciliphen_ref)
+
 

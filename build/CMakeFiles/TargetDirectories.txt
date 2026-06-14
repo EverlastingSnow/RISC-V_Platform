@@ -3,5 +3,7 @@
 /opt/RISC-V_Platform/build/CMakeFiles/run_riscv_tests.dir
 /opt/RISC-V_Platform/build/CMakeFiles/debug_test.dir
 /opt/RISC-V_Platform/build/CMakeFiles/riscv_sim_server.dir
+/opt/RISC-V_Platform/build/CMakeFiles/ciliphen_ref.dir
+/opt/RISC-V_Platform/build/CMakeFiles/difftest_runner.dir
 /opt/RISC-V_Platform/build/CMakeFiles/edit_cache.dir
 /opt/RISC-V_Platform/build/CMakeFiles/rebuild_cache.dir

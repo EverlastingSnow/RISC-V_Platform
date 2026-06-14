@@ -44,4 +44,6 @@ set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/run_riscv_tests.dir/DependInfo.cmake"
   "CMakeFiles/debug_test.dir/DependInfo.cmake"
   "CMakeFiles/riscv_sim_server.dir/DependInfo.cmake"
+  "CMakeFiles/ciliphen_ref.dir/DependInfo.cmake"
+  "CMakeFiles/difftest_runner.dir/DependInfo.cmake"
   )

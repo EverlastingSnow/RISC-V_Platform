@@ -68,6 +68,19 @@ bool CSR::is_implemented(u32 addr) const {
     //   0xC00-0xCFF: U-mode counter
     //   0xD00-0xEFF: reserved
     //   0xF00-0xFFF: Machine info
+    //
+    // 关键修正：PMP 寄存器（0x3A0-0x3A3 pmpcfg0..3，0x3B0-0x3BF pmpaddr0..15）
+    // 与 Ciliphen/riscv-lab/difftest 的参考实现（rv_priv.hpp::csr_write）一致，
+    // 在 default 分支返回 false，触发 illegal instruction 异常。这保证本地模拟器
+    // 与参考模型对 csrw pmpaddr0 / csrw pmpcfg0 的处理路径完全相同。
+    if (addr >= 0x3A0u && addr <= 0x3A3u) return false;  // pmpcfg0..3
+    if (addr >= 0x3B0u && addr <= 0x3BFu) return false;  // pmpaddr0..15
+    // 关键修正：medeleg (0x302) 和 mideleg (0x303) 在 ciliphen 的 csr_write 中
+    // 没有 case 分支（csr_read 返回 true，csr_write 返回 false），因此 ciliphen
+    // 认为 csrwi medeleg / csrwi mideleg 触发 illegal instruction。本地模拟器
+    // 与之对齐，避免路径分叉。
+    if (addr == 0x302u) return false;  // medeleg
+    if (addr == 0x303u) return false;  // mideleg
     if (addr <= 0x3FFu) {
         // U/S/M-mode CSR (0x200-0x2FF 是 H-mode, riscv-tests 不依赖, 视为合法)
         return true;
@@ -108,8 +121,9 @@ u64 CSR::read(u32 addr) const {
         case CsrAddr::MSTATUS:
             return mstatus_;
         case CsrAddr::MISA:
-            // MXL = 2 (RV64) + I + M，与参考 csr_misa_def 一致。
-            return (2ULL << 62) | 0x1001ULL;
+            // MXL = 2 (RV64) + I + M + U，与 ciliphen rv_priv.hpp::reset() 一致。
+            // (1<<8)=I, (1<<12)=M, (1<<20)=U
+            return (2ULL << 62) | (1ULL << 8) | (1ULL << 12) | (1ULL << 20);
         case CsrAddr::MIE:
             return mie_;
         case CsrAddr::MTVEC:
@@ -154,6 +168,18 @@ u64 CSR::read(u32 addr) const {
             if (idx < 4) return pmpcfg_[idx];
             return 0;
         }
+        // 调试模式 CSR：与 ciliphen rv_priv.hpp::csr_read 对齐
+        //   tselect (0x7A0) 读返回 1
+        //   tdata1  (0x7A1) 读返回 0
+        //   tdata2  (0x7A2) 读返回 0
+        //   tdata3  (0x7A3) 读返回 0
+        // 这样 csrr a1, tselect 在 difftest 中能拿到 1，而不是 0。
+        case 0x7A0:  // tselect
+            return 1;
+        case 0x7A1:  // tdata1
+        case 0x7A2:  // tdata2
+        case 0x7A3:  // tdata3
+            return 0;
         default:
             return 0;
     }
@@ -161,9 +187,31 @@ u64 CSR::read(u32 addr) const {
 
 void CSR::write(u32 addr, u64 value) {
     switch (addr) {
-        case CsrAddr::MSTATUS:
-            mstatus_ = (value & ~0x200000000ULL) | (mstatus_ & 0x200000000ULL);  // MBE is read-only
+        case CsrAddr::MSTATUS: {
+            // 与 ciliphen rv_priv.hpp::csr_write 严格对齐：
+            //   1. 只更新 ciliphen 显式赋值的字段：MIE(3)、MPIE(7)、MPRV(17)、MPP(12:11)
+            //   2. MPP 仅在 0 (User) 或 3 (Machine) 时接受，其他值保持原值
+            //   3. SIE / SPIE / SPP / SUM / MXR / TVM / TW / TSR / UXL / SXL / SBE / MBE / SD 等
+            //      全部保留 (ciliphen 的赋值都被注释掉 = 保留原值)
+            //   4. ciliphen 不显式修改 mbe, 但 bit37 在某些 riscv-tests 中被设 1
+            //      之后又写 mstatus; 我们必须保留 mbe/sbe/sd 等高位
+            constexpr u64 MIE_MASK  = 1ULL << 3;
+            constexpr u64 MPIE_MASK = 1ULL << 7;
+            constexpr u64 MPRV_MASK = 1ULL << 17;
+            constexpr u64 MPP_MASK  = 0x1800ULL;        // bits 12:11
+            constexpr u64 MPP_M     = 0x3ULL;
+            u64 mstatus_new = mstatus_;
+            mstatus_new = (mstatus_new & ~MIE_MASK)  | (value & MIE_MASK);
+            mstatus_new = (mstatus_new & ~MPIE_MASK) | (value & MPIE_MASK);
+            mstatus_new = (mstatus_new & ~MPRV_MASK) | (value & MPRV_MASK);
+            const u64 new_mpp = (value & MPP_MASK) >> 11;
+            if (new_mpp == 0 || new_mpp == MPP_M) {
+                mstatus_new = (mstatus_new & ~MPP_MASK) | (new_mpp << 11);
+            }
+            // 保留 SIE/SPIE/SPP/SUM/MXR/TVM/TW/TSR/UXL/SXL/SBE/MBE/SD 等所有其他位
+            mstatus_ = mstatus_new;
             break;
+        }
         case CsrAddr::MIE:
             mie_ = value & M_INT_MASK;
             break;

@@ -181,6 +181,56 @@ riscv_sim_server/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/riscv_sim_server.dir/build.make CMakeFiles/riscv_sim_server.dir/build
 .PHONY : riscv_sim_server/fast
 
+#=============================================================================
+# Target rules for targets named ciliphen_ref
+
+# Build rule for target.
+ciliphen_ref: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ciliphen_ref
+.PHONY : ciliphen_ref
+
+# fast build rule for target.
+ciliphen_ref/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ciliphen_ref.dir/build.make CMakeFiles/ciliphen_ref.dir/build
+.PHONY : ciliphen_ref/fast
+
+#=============================================================================
+# Target rules for targets named difftest_runner
+
+# Build rule for target.
+difftest_runner: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 difftest_runner
+.PHONY : difftest_runner
+
+# fast build rule for target.
+difftest_runner/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/difftest_runner.dir/build.make CMakeFiles/difftest_runner.dir/build
+.PHONY : difftest_runner/fast
+
+src/ciliphen_ref.o: src/ciliphen_ref.cpp.o
+.PHONY : src/ciliphen_ref.o
+
+# target to build an object file
+src/ciliphen_ref.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ciliphen_ref.dir/build.make CMakeFiles/ciliphen_ref.dir/src/ciliphen_ref.cpp.o
+.PHONY : src/ciliphen_ref.cpp.o
+
+src/ciliphen_ref.i: src/ciliphen_ref.cpp.i
+.PHONY : src/ciliphen_ref.i
+
+# target to preprocess a source file
+src/ciliphen_ref.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ciliphen_ref.dir/build.make CMakeFiles/ciliphen_ref.dir/src/ciliphen_ref.cpp.i
+.PHONY : src/ciliphen_ref.cpp.i
+
+src/ciliphen_ref.s: src/ciliphen_ref.cpp.s
+.PHONY : src/ciliphen_ref.s
+
+# target to generate assembly for a file
+src/ciliphen_ref.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ciliphen_ref.dir/build.make CMakeFiles/ciliphen_ref.dir/src/ciliphen_ref.cpp.s
+.PHONY : src/ciliphen_ref.cpp.s
+
 src/csr.o: src/csr.cpp.o
 .PHONY : src/csr.o
 
@@ -253,6 +303,30 @@ src/decoder.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/riscv_core.dir/build.make CMakeFiles/riscv_core.dir/src/decoder.cpp.s
 .PHONY : src/decoder.cpp.s
 
+src/difftest_runner.o: src/difftest_runner.cpp.o
+.PHONY : src/difftest_runner.o
+
+# target to build an object file
+src/difftest_runner.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/difftest_runner.dir/build.make CMakeFiles/difftest_runner.dir/src/difftest_runner.cpp.o
+.PHONY : src/difftest_runner.cpp.o
+
+src/difftest_runner.i: src/difftest_runner.cpp.i
+.PHONY : src/difftest_runner.i
+
+# target to preprocess a source file
+src/difftest_runner.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/difftest_runner.dir/build.make CMakeFiles/difftest_runner.dir/src/difftest_runner.cpp.i
+.PHONY : src/difftest_runner.cpp.i
+
+src/difftest_runner.s: src/difftest_runner.cpp.s
+.PHONY : src/difftest_runner.s
+
+# target to generate assembly for a file
+src/difftest_runner.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/difftest_runner.dir/build.make CMakeFiles/difftest_runner.dir/src/difftest_runner.cpp.s
+.PHONY : src/difftest_runner.cpp.s
+
 src/elf_loader.o: src/elf_loader.cpp.o
 .PHONY : src/elf_loader.o
 
@@ -261,6 +335,7 @@ src/elf_loader.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_riscv_tests.dir/build.make CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/debug_test.dir/build.make CMakeFiles/debug_test.dir/src/elf_loader.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/riscv_sim_server.dir/build.make CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ciliphen_ref.dir/build.make CMakeFiles/ciliphen_ref.dir/src/elf_loader.cpp.o
 .PHONY : src/elf_loader.cpp.o
 
 src/elf_loader.i: src/elf_loader.cpp.i
@@ -271,6 +346,7 @@ src/elf_loader.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_riscv_tests.dir/build.make CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/debug_test.dir/build.make CMakeFiles/debug_test.dir/src/elf_loader.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/riscv_sim_server.dir/build.make CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ciliphen_ref.dir/build.make CMakeFiles/ciliphen_ref.dir/src/elf_loader.cpp.i
 .PHONY : src/elf_loader.cpp.i
 
 src/elf_loader.s: src/elf_loader.cpp.s
@@ -281,6 +357,7 @@ src/elf_loader.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_riscv_tests.dir/build.make CMakeFiles/run_riscv_tests.dir/src/elf_loader.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/debug_test.dir/build.make CMakeFiles/debug_test.dir/src/elf_loader.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/riscv_sim_server.dir/build.make CMakeFiles/riscv_sim_server.dir/src/elf_loader.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ciliphen_ref.dir/build.make CMakeFiles/ciliphen_ref.dir/src/elf_loader.cpp.s
 .PHONY : src/elf_loader.cpp.s
 
 src/main.o: src/main.cpp.o
@@ -435,11 +512,16 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
+	@echo "... ciliphen_ref"
 	@echo "... debug_test"
+	@echo "... difftest_runner"
 	@echo "... riscv_core"
 	@echo "... riscv_sim"
 	@echo "... riscv_sim_server"
 	@echo "... run_riscv_tests"
+	@echo "... src/ciliphen_ref.o"
+	@echo "... src/ciliphen_ref.i"
+	@echo "... src/ciliphen_ref.s"
 	@echo "... src/csr.o"
 	@echo "... src/csr.i"
 	@echo "... src/csr.s"
@@ -449,6 +531,9 @@ help:
 	@echo "... src/decoder.o"
 	@echo "... src/decoder.i"
 	@echo "... src/decoder.s"
+	@echo "... src/difftest_runner.o"
+	@echo "... src/difftest_runner.i"
+	@echo "... src/difftest_runner.s"
 	@echo "... src/elf_loader.o"
 	@echo "... src/elf_loader.i"
 	@echo "... src/elf_loader.s"

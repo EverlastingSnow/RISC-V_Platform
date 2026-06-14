@@ -580,7 +580,7 @@ void RISCVSimulator::stage_ex() {
                 csr_.set_privilege_mode(PrivilegeMode::Machine);
                 pending_ebreak_ = false;
                 last_trap_cause_ = TrapCause::Exception;
-                exception_taken_ = true;
+                exception_taken_ = true;  // 抑制 trap 指令 commit
                 break;
             }
             alu_result = instr.pc + 4;
@@ -623,7 +623,7 @@ void RISCVSimulator::stage_ex() {
                 csr_.set_privilege_mode(PrivilegeMode::Machine);
                 pending_ebreak_ = false;
                 last_trap_cause_ = TrapCause::Exception;
-                exception_taken_ = true;
+                exception_taken_ = true;  // 抑制 trap 指令 commit
             } else {
                 branch_taken = true;
                 branch_target = jalr_target;
@@ -673,7 +673,7 @@ void RISCVSimulator::stage_ex() {
                 csr_.set_privilege_mode(PrivilegeMode::Machine);
                 pending_ebreak_ = false;
                 last_trap_cause_ = TrapCause::Exception;
-                exception_taken_ = true;
+                exception_taken_ = true;  // 抑制 trap 指令 commit
                 break;
             }
             branch_target = br_target;
@@ -736,7 +736,7 @@ void RISCVSimulator::stage_ex() {
                 csr_.set_privilege_mode(PrivilegeMode::Machine);
                 pending_ebreak_ = false;
                 last_trap_cause_ = TrapCause::Exception;
-                exception_taken_ = true;
+                exception_taken_ = true;  // 抑制 trap 指令 commit
                 (void)is_store;
             }
             break;
@@ -1020,7 +1020,7 @@ void RISCVSimulator::stage_ex() {
                     csr_.set_privilege_mode(PrivilegeMode::Machine);
                     pending_ebreak_ = false;
                     last_trap_cause_ = TrapCause::Exception;
-                    exception_taken_ = true;
+                    exception_taken_ = true;  // 抑制 trap 指令 commit
                     alu_result = 0;
                     break;
                 }
@@ -1081,7 +1081,7 @@ void RISCVSimulator::stage_ex() {
             csr_.set_privilege_mode(PrivilegeMode::Machine);
             pending_ebreak_ = false;
             last_trap_cause_ = TrapCause::Exception;
-            exception_taken_ = true;
+            exception_taken_ = true;  // 抑制 trap 指令 commit
             alu_result = 0;
             break;
         }
@@ -1117,7 +1117,7 @@ void RISCVSimulator::stage_ex() {
             csr_.set_privilege_mode(PrivilegeMode::Machine);
             pending_ebreak_ = false;
             last_trap_cause_ = TrapCause::Exception;
-            exception_taken_ = true;
+            exception_taken_ = true;  // 抑制 trap 指令 commit
             alu_result = 0;
             break;
         case InstructionKind::MRET: {
@@ -1204,7 +1204,7 @@ void RISCVSimulator::stage_ex() {
                     csr_.set_privilege_mode(PrivilegeMode::Machine);
                     pending_ebreak_ = false;
                     last_trap_cause_ = TrapCause::Exception;
-                    exception_taken_ = true;
+                    exception_taken_ = true;  // 抑制 trap 指令 commit
                     alu_result = 0;
                     break;
                 }
@@ -1290,7 +1290,7 @@ void RISCVSimulator::stage_ex() {
                 csr_.set_privilege_mode(PrivilegeMode::Machine);
                 pending_ebreak_ = false;
                 last_trap_cause_ = TrapCause::Exception;
-                exception_taken_ = true;
+                exception_taken_ = true;  // 抑制 trap 指令 commit
                 alu_result = 0;
             };
             if (priv == PrivilegeMode::User && requires_s_or_m && !is_u_counter) {
@@ -1306,6 +1306,30 @@ void RISCVSimulator::stage_ex() {
             if (priv == PrivilegeMode::Supervisor && csr_addr == 0x180u) {
                 constexpr u64 MSTATUS_TVM = 1ULL << 20;
                 if (csr_.read(CSR_MSTATUS) & MSTATUS_TVM) {
+                    trigger_illegal();
+                    break;
+                }
+            }
+            // CSR 写权限检查 (与 ciliphen rv_priv.hpp::csr_op_permission_check 对齐)：
+            //   对 0xC00-0xFFF 范围的 CSR，**写**操作必须触发 Illegal instruction 异常。
+            //   这些 CSR (cycle/instret 计数器、machine info) 在 RISC-V 规范中是只读的。
+            //   对应 riscv-tests rv64mi-p-csr 中的 `csrrw a0, cycle, zero` 测试。
+            if (instr.kind == InstructionKind::CSRRW || instr.kind == InstructionKind::CSRRWI ||
+                instr.kind == InstructionKind::CSRRS || instr.kind == InstructionKind::CSRRSI ||
+                instr.kind == InstructionKind::CSRRC || instr.kind == InstructionKind::CSRRCI) {
+                // CSRRS/CSRRC/CSRRSI/CSRRCI 写条件：rs1 != 0
+                bool is_write = false;
+                if (instr.kind == InstructionKind::CSRRW || instr.kind == InstructionKind::CSRRWI) {
+                    is_write = true;
+                } else {
+                    const u32 rs1 = static_cast<u32>(instr.rs1);
+                    if (instr.kind == InstructionKind::CSRRSI || instr.kind == InstructionKind::CSRRCI) {
+                        is_write = (rs1 != 0);
+                    } else {
+                        is_write = (rs1_val != 0);  // CSRRS/CSRRC: rs1_val != 0 才写
+                    }
+                }
+                if (is_write && csr_addr >= 0xC00u && csr_addr <= 0xFFFu) {
                     trigger_illegal();
                     break;
                 }
@@ -1374,7 +1398,7 @@ void RISCVSimulator::stage_ex() {
                 csr_.set_privilege_mode(PrivilegeMode::Machine);
                 pending_ebreak_ = false;
                 last_trap_cause_ = TrapCause::Exception;
-                exception_taken_ = true;
+                exception_taken_ = true;  // 抑制 trap 指令 commit
             } else {
                 // 其他未识别的非非法指令：保持默认（不跳转）
                 alu_result = 0;
@@ -1385,11 +1409,22 @@ void RISCVSimulator::stage_ex() {
             break;
     }
 
-    // 异常/中断路径需要阻止当前指令继续推进到 MEM/WB。
-    // 否则会覆盖流水线中前置指令的写回（特别是 JALR 目标 misalign 后 t1 仍要被保留）。
-    // exception_taken_ 在各 trap 分支里被置位。
-    next_ex_mem_.valid = id_ex_.valid && !exception_taken_;
-    next_ex_mem_.instr = instr;
+    // 异常/中断路径：仍推进当前指令的 ex_mem.valid（让 trap 指令 commit 一次），
+    // 但强制 rd=0, alu_result=0，确保不会写 GPR。
+    // ciliphen rv_core::exec 的语义：trap 指令会进入 exception label 并执行
+    // raise_trap/set_GPR(rd=0)（因为 rd=0 时 set_GPR 是 no-op），但 debug_pc 仍然
+    // 是 trap 指令的 PC。所以本地模拟器要 commit trap（rd=0, wdata=0）才能对齐。
+    next_ex_mem_.valid = id_ex_.valid;
+    if (exception_taken_) {
+        DecodedInstruction trap_instr = instr;  // 拷贝以便修改 rd
+        trap_instr.rd = 0;
+        next_ex_mem_.instr = trap_instr;
+        alu_result = 0;
+        next_ex_mem_.trap_taken = true;  // 通知 MEM 阶段跳过内存访问
+    } else {
+        next_ex_mem_.instr = instr;
+        next_ex_mem_.trap_taken = false;
+    }
     next_ex_mem_.alu_result = alu_result;
     next_ex_mem_.alu_src1 = alu_src1;
     next_ex_mem_.alu_src2 = alu_src2;
@@ -1431,6 +1466,11 @@ void RISCVSimulator::stage_mem() {
     next_mem_wb_.csr_write = ex_mem_.csr_write;
     next_mem_wb_.csr_addr = ex_mem_.csr_addr;
     next_mem_wb_.csr_new_val = ex_mem_.csr_new_val;
+
+    // trap 指令（异常/中断触发的指令）不需要访存
+    if (ex_mem_.trap_taken) {
+        return;
+    }
 
     if (redirect_) {
         return;
