@@ -1,3 +1,11 @@
+"""
+旧版 HTTP 状态/信号服务（前端 Mock 用）。
+
+该服务返回的是**模拟**的 CPU 状态与流水线信号数据，
+未与真实的 C++ 模拟器交互，仅用于前端在没有真机/真模拟器时调试界面。
+如需真实仿真请使用 api_websocket_server.py。
+"""
+
 import http.server
 import socketserver
 import json
@@ -6,17 +14,34 @@ import os
 
 import config
 
+# 服务监听端口（来自 config 模块）
 PORT = config.API_SERVER_PORT
 
+
 class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+    """
+    自定义 HTTP 请求处理器。
+
+    除了提供父类的静态文件服务外，还实现了
+    /api/state、/api/signals 两个 GET 接口，
+    以及 /api/clock、/api/reset、/api/load 三个 POST 接口。
+    """
+
     def do_GET(self):
+        """
+        处理 GET 请求。
+
+        Returns:
+            None: 响应直接通过 self.wfile 写回客户端。
+        """
         if self.path == '/api/state':
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
+            # 允许任意源跨域访问，便于本地前端调试
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            
-            # Simulate state response
+
+            # 模拟状态响应：cycle、pc 与 32 个通用寄存器初值
             state = {
                 "cycle": 0,
                 "pc": "0x80000000",
@@ -30,8 +55,8 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            
-            # Simulate signals response
+
+            # 模拟五级流水线各阶段的关键信号
             signals = {
                 "fetch": {
                     "pc": "0x80000000",
@@ -87,19 +112,26 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             }
             self.wfile.write(json.dumps(signals).encode())
         else:
+            # 非 API 路径走父类静态文件服务（前端 HTML/JS 等）
             super().do_GET()
-    
+
     def do_POST(self):
+        """
+        处理 POST 请求（模拟器控制类操作）。
+
+        Returns:
+            None: 响应直接通过 self.wfile 写回客户端。
+        """
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
-        
+
         if self.path == '/api/clock':
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            
-            # Simulate clock response
+
+            # 模拟单步时钟推进
             response = {
                 "cycle": 1,
                 "pc": "0x80000004"
@@ -110,8 +142,8 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            
-            # Simulate reset response
+
+            # 模拟复位到初始状态
             response = {
                 "cycle": 0,
                 "pc": "0x80000000"
@@ -122,25 +154,29 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            
-            # Simulate load response
+
+            # 模拟加载程序（此处无实际动作，仅返回 OK 风格响应）
             response = {
                 "cycle": 0,
                 "pc": "0x80000000"
             }
             self.wfile.write(json.dumps(response).encode())
         else:
+            # 未识别的接口返回 404
             self.send_response(404)
             self.end_headers()
-    
+
     def do_OPTIONS(self):
+        """处理 CORS 预检请求，统一放行 GET/POST/OPTIONS。"""
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
 
+
 if __name__ == "__main__":
+    # 启动 TCP 服务并持续监听（单线程）
     with socketserver.TCPServer(("", PORT), MyHTTPRequestHandler) as httpd:
         print(f"Server running at http://localhost:{PORT}")
         httpd.serve_forever()
