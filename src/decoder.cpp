@@ -16,6 +16,15 @@ constexpr s32 imm_s(u32 raw) {
     return sign_extend<s32>(static_cast<s32>((high << 5) | low), 12);
 }
 
+/**
+ * @brief 从 32 位指令字中提取 B 型立即数（13 位有符号，LSB 强制为 0）。
+ *
+ * B 型立即数在指令中按位翻转（bit12 在 [31]、bit11 在 [7]、bits10:5 在 [30:25]、bits4:1 在 [11:8]），
+ * 需要按 RISC-V 规范正确重组。
+ *
+ * @param raw 32 位指令字
+ * @return 符号扩展到 32 位的分支偏移
+ */
 constexpr s32 imm_b(u32 raw) {
     const u32 bit11 = (raw >> 7) & 0x1;
     const u32 bits4_1 = (raw >> 8) & 0xF;
@@ -25,14 +34,34 @@ constexpr s32 imm_b(u32 raw) {
     return sign_extend<s32>(static_cast<s32>(value), 13);
 }
 
+/**
+ * @brief 从 32 位指令字中提取 U 型立即数（高 20 位，低 12 位置 0）。
+ *
+ * @param raw 32 位指令字
+ * @return 32 位值，高 20 位为指令中的 imm[31:12]，低 12 位为 0
+ */
 constexpr s32 imm_u(u32 raw) {
     return static_cast<s32>(raw & 0xFFFFF000);
 }
 
+/**
+ * @brief 从 32 位指令字中提取 CSR 地址（12 位无符号，不做符号扩展）。
+ *
+ * @param raw 32 位指令字
+ * @return CSR 寄存器地址
+ */
 constexpr u32 imm_csr(u32 raw) {
     return (raw >> 20) & 0xFFFu;  // CSR 地址是 12 位无符号，不做符号扩展
 }
 
+/**
+ * @brief 从 32 位指令字中提取 J 型立即数（21 位有符号，LSB 强制为 0）。
+ *
+ * J 型立即数在指令中也按位翻转（bit20 在 [31]、bits10:1 在 [30:21]、bit11 在 [20]、bits19:12 在 [19:12]）。
+ *
+ * @param raw 32 位指令字
+ * @return 符号扩展到 32 位的跳转偏移
+ */
 constexpr s32 imm_j(u32 raw) {
     const u32 bits19_12 = (raw >> 12) & 0xFF;
     const u32 bit11 = (raw >> 20) & 0x1;
@@ -42,6 +71,15 @@ constexpr s32 imm_j(u32 raw) {
     return sign_extend<s32>(static_cast<s32>(value), 21);
 }
 
+/**
+ * @brief 判断 funct7 字段是否表示合法的 RV32 移位指令（仅用于 RV32 风格检查）。
+ *
+ * 注意：RV64 的 I 型移位使用 shamt[5:0]，bit25 是 shamt[5]，
+ * 因此不能简单用 bits[31:25] 当 funct7 判断；RV64 解码处会用 funct6(bits[31:26])。
+ *
+ * @param funct7 funct7 字段值
+ * @return true 表示 0b0000000（SRLI/SLLI）或 0b0100000（SRAI）
+ */
 bool is_shift_imm_valid(u32 funct7) {
     // 注意：RV64 的 I 型移位使用 shamt[5:0]，bit25 是 shamt[5]，不能简单用 bits[31:25] 当 funct7 判断。
     // 该函数仅保留给 RV32 风格检查用（funct7=0 或 0x20），RV64 解码处会用 funct6(bits[31:26]) 判断。
@@ -120,6 +158,11 @@ bool DecodedInstruction::writes_rd() const {
     }
 }
 
+/**
+ * @brief 判断该指令是否为条件分支指令。
+ *
+ * @return true 表示 BEQ/BNE/BLT/BGE/BLTU/BGEU 之一
+ */
 bool DecodedInstruction::is_branch() const {
     switch (kind) {
         case InstructionKind::BEQ:
@@ -153,6 +196,11 @@ bool DecodedInstruction::is_load() const {
     }
 }
 
+/**
+ * @brief 判断该指令是否为 Store 指令。
+ *
+ * @return true 表示 SB/SH/SW/SD 之一
+ */
 bool DecodedInstruction::is_store() const {
     switch (kind) {
         case InstructionKind::SB:
@@ -165,6 +213,11 @@ bool DecodedInstruction::is_store() const {
     }
 }
 
+/**
+ * @brief 判断该指令是否为 CSR 读写指令。
+ *
+ * @return true 表示 CSRRW/CSRRS/CSRRC/CSRRWI/CSRRSI/CSRRCI 之一
+ */
 bool DecodedInstruction::is_csr() const {
     switch (kind) {
         case InstructionKind::CSRRW:
@@ -440,6 +493,12 @@ DecodedInstruction decode(u32 raw, u64 pc) {
     return inst;
 }
 
+/**
+ * @brief 把 InstructionKind 枚举转换为可读的助记符字符串。
+ *
+ * @param kind 指令类型枚举
+ * @return 助记符字符串（如 "LUI"、"ADD"），未识别则返回 "INVALID"
+ */
 std::string to_string(InstructionKind kind) {
     switch (kind) {
         case InstructionKind::LUI: return "LUI";

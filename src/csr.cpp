@@ -22,10 +22,21 @@ constexpr u32 STVAL = 0x143;
 constexpr u32 STVEC = 0x105;
 }  // namespace CsrAddr
 
+/**
+ * @brief 构造 CSR 寄存器组，立即调用 reset() 初始化。
+ */
 CSR::CSR() {
     reset();
 }
 
+/**
+ * @brief 复位所有 CSR 到上电默认值。
+ *
+ * 关键设置：
+ *   - mstatus.UXL = 2（RV64）；mstatus.MPP = 3（M-Mode）
+ *   - 不设置 MBE/SBE（与 ciliphen rv_priv.hpp 行为一致）
+ *   - PMP/PMPCFG 寄存器清零
+ */
 void CSR::reset() {
     // 修复点：原代码设 MBE=1 (大端序) 与 ELF 加载/参考实现不一致；这里清零。
     // UXL = 2 (RV64)、MPP = 3 (M-Mode, 复位默认) 与 SPEC 一致。
@@ -116,6 +127,20 @@ bool CSR::is_implemented(u32 addr) const {
     return false;
 }
 
+/**
+ * @brief 读取 CSR 寄存器的当前值。
+ *
+ * 已实现的 CSR 返回真实值；未实现或保留范围返回 0。
+ * 特殊处理：
+ *   - MISA：硬编码返回 RV64 + I + M + U
+ *   - SSTATUS：从 mstatus 中按 SSTATUS_MASK 提取子集
+ *   - SIE/SIP：透传 mie/mip 的 S-mode 中断位
+ *   - PMPADDR/PMPCFG：从 pmpaddr_/pmpcfg_ 数组读取
+ *   - tselect：返回 1；tdata1/2/3：返回 0（与 ciliphen 对齐）
+ *
+ * @param addr CSR 地址
+ * @return CSR 当前值
+ */
 u64 CSR::read(u32 addr) const {
     switch (addr) {
         case CsrAddr::MSTATUS:
@@ -273,6 +298,16 @@ void CSR::write(u32 addr, u64 value) {
     }
 }
 
+/**
+ * @brief 检查当前是否有可触发的中断。
+ *
+ * 中断触发条件：
+ *   - mip & mie 至少有 1 位为 1
+ *   - M 模式：需要 mstatus.MIE
+ *   - S 模式：需要 mstatus.SIE 且中断位属于 S-mode 中断（位 1/5/9）
+ *
+ * @return true 表示有可触发的中断
+ */
 bool CSR::has_pending_interrupt() const {
     constexpr u64 MSTATUS_MIE = 1ULL << 3;
     constexpr u64 MSTATUS_SIE = 1ULL << 1;
@@ -303,6 +338,13 @@ bool CSR::has_pending_interrupt() const {
     return false;
 }
 
+/**
+ * @brief 获取当前最高优先级待处理中断的原因码。
+ *
+ * 中断优先级（与 RISC-V 规范一致）：MEI(11) > MSI(3) > MTI(7) > SEI(9) > SSI(1) > STI(5)
+ *
+ * @return 中断原因位号；无待处理中断时返回 0
+ */
 u64 CSR::get_interrupt_cause() const {
     u64 pending = mip_ & mie_;
     if (pending == 0) return 0;
@@ -320,3 +362,4 @@ u64 CSR::get_interrupt_cause() const {
 }
 
 }  // namespace riscv
+

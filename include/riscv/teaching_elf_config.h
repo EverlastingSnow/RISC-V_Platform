@@ -8,20 +8,46 @@
 
 namespace riscv {
 
+/**
+ * @brief 单个教学 ELF 测试用例描述。
+ *
+ * 指向 $RISCV_TEACHING_DIR 下编译好的 .elf 文件，
+ * 区别于内嵌指令流的 TeachingTestCase——这里要由前端发起实际 ELF 加载。
+ */
 struct TeachingElfTest {
+    /** 用例唯一名。 */
     std::string name;
+    /** 前端展示名（中文）。 */
     std::string display_name;
+    /** 用例描述。 */
     std::string description;
+    /** 相对教学目录的 ELF 路径。 */
     std::string elf_path;
+    /** 场景分组（scenario1..4 / all）。 */
     std::string scenario;
 };
 
+/**
+ * @brief 教学 ELF 测试用例的静态注册表。
+ *
+ * 所有 ELF 路径都在初始化阶段由 Config::get_teaching_dir() 拼接得到。
+ * 提供三个静态查询接口：
+ *   - get_all_elf_tests()             返回全部
+ *   - get_elf_tests_by_scenario(s)    按场景过滤
+ *   - get_elf_base_path()             教学目录绝对路径
+ */
 class TeachingElfConfig {
 public:
+    /** @brief 返回所有 ELF 测试用例。 */
     static const std::vector<TeachingElfTest>& get_all_elf_tests() {
         return s_elf_tests;
     }
 
+    /**
+     * @brief 按场景过滤 ELF 测试用例。
+     * @param scenario 场景名（scenario1..4）
+     * @return 过滤后的用例列表
+     */
     static const std::vector<TeachingElfTest> get_elf_tests_by_scenario(const std::string& scenario) {
         std::vector<TeachingElfTest> result;
         for (const auto& test : s_elf_tests) {
@@ -32,11 +58,13 @@ public:
         return result;
     }
 
+    /** @brief 返回教学目录绝对路径（来自 Config::get_teaching_dir）。 */
     static const std::string& get_elf_base_path() {
         return Config::get_teaching_dir();
     }
 
 private:
+    /** ELF 用例表（定义在文件末尾的 inline 变量中）。 */
     static const std::vector<TeachingElfTest> s_elf_tests;
 };
 

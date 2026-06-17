@@ -1,9 +1,30 @@
 // Quick debug runner: print last PC / cycle for a single ELF
+//
+// @file debug_test.cpp
+// @brief 调试辅助工具：加载单个 ELF 并打印停机信息 / 寄存器 / CSR 状态。
+//
+// 与 difftest_runner 不同，本工具不与 ciliphen 参考模型对账，
+// 仅用于单跑 ELF 时快速观察模拟器的最终状态与关键 CSR。
+
 #include <cstring>
 #include <iostream>
 #include "riscv/elf_loader.h"
 #include "riscv/simulator.h"
 
+/**
+ * @brief 调试工具入口：单跑 ELF 并打印 PC/寄存器/CSR。
+ *
+ * 用法：
+ *   - debug_test <elf_path>            单跑，默认 500,000 周期
+ *   - debug_test <elf_path> [max_cycles] 自定义最大周期数
+ *
+ * 打印内容：
+ *   - 停机状态、halt_reason、pc、halt_pc、halt_inst、cycle
+ *   - 32 个整数寄存器的值
+ *   - 关键 CSR（mip/mie/mstatus/mepc/mcause/mtval/mtvec）
+ *
+ * @return 0 正常退出，1 参数错误或 ELF 加载失败
+ */
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "Usage: debug_test <elf_path> [max_cycles]\n";

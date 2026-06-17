@@ -17,6 +17,14 @@
 namespace riscv {
 namespace {
 
+/**
+ * @brief 判断指定指令是否使用 rs1 源寄存器。
+ *
+ * LUI、AUIPC、JAL、FENCE 系列、ECALL/EBREAK/MRET 以及 CSR 立即数形式不需要 rs1。
+ *
+ * @param kind RISC-V 指令类型枚举
+ * @return true 表示该指令会读取 rs1；false 表示不使用 rs1
+ */
 bool uses_rs1(InstructionKind kind) {
     switch (kind) {
         case InstructionKind::LUI:
@@ -37,6 +45,14 @@ bool uses_rs1(InstructionKind kind) {
     return true;
 }
 
+/**
+ * @brief 判断指定指令是否使用 rs2 源寄存器。
+ *
+ * R 型算术/逻辑/移位指令、Store 指令、分支指令、M 扩展乘除法指令均使用 rs2。
+ *
+ * @param kind RISC-V 指令类型枚举
+ * @return true 表示该指令会读取 rs2；false 表示不使用 rs2
+ */
 bool uses_rs2(InstructionKind kind) {
     switch (kind) {
         case InstructionKind::SB:
@@ -83,6 +99,14 @@ bool uses_rs2(InstructionKind kind) {
     }
 }
 
+/**
+ * @brief 判断指定指令是否使用立即数操作数。
+ *
+ * 包括 LUI/AUIPC/JAL/JALR、Load/Store、I 型算术/逻辑/移位指令、分支指令、FENCE 系列。
+ *
+ * @param kind RISC-V 指令类型枚举
+ * @return true 表示该指令含立即数字段；false 表示无立即数
+ */
 bool uses_imm(InstructionKind kind) {
     switch (kind) {
         case InstructionKind::LUI:
@@ -127,6 +151,16 @@ bool uses_imm(InstructionKind kind) {
     }
 }
 
+/**
+ * @brief 根据指令类型与两个操作数判断条件分支是否成立。
+ *
+ * 严格按照 RISC-V 规范：BLT/BGE 使用有符号比较，BLTU/BGEU 使用无符号比较。
+ *
+ * @param instr 已解码的分支指令
+ * @param lhs rs1 寄存器值
+ * @param rhs rs2 寄存器值
+ * @return true 表示分支条件成立，需要跳转；false 表示不跳转
+ */
 bool is_branch_taken(const DecodedInstruction& instr, u64 lhs, u64 rhs) {
     switch (instr.kind) {
         case InstructionKind::BEQ: return lhs == rhs;
@@ -141,16 +175,34 @@ bool is_branch_taken(const DecodedInstruction& instr, u64 lhs, u64 rhs) {
 
 }  // namespace
 
+/**
+ * @brief 构造 RISC-V 模拟器，分配默认内存并复位到初始状态。
+ *
+ * 内存大小使用 DEFAULT_MEMORY_SIZE（256 MiB），基地址使用 RESET_VECTOR（0x80000000）。
+ */
 RISCVSimulator::RISCVSimulator() : memory_(static_cast<std::size_t>(DEFAULT_MEMORY_SIZE), RESET_VECTOR) {
     reset();
 }
 
+/**
+ * @brief 加载程序二进制到内存并复位模拟器。
+ *
+ * 会先清空内存，再写入新程序，最后调用 reset() 将所有寄存器/CSR/流水线状态归零。
+ *
+ * @param binary 程序二进制字节流
+ * @param offset 程序在虚拟地址空间中的偏移，相对 memory 基地址
+ */
 void RISCVSimulator::load_program(const std::vector<u8>& binary, u64 offset) {
     memory_.reset();
     memory_.load_program(binary, offset);
     reset();
 }
 
+/**
+ * @brief 复位模拟器到初始状态。
+ *
+ * 清零通用寄存器、CSR、流水线寄存器、异常/中断标志，并将 PC 复位到内存基地址。
+ */
 void RISCVSimulator::reset() {
     regs_.reset();
     csr_.reset();
@@ -182,12 +234,24 @@ void RISCVSimulator::reset() {
     last_trap_cause_ = TrapCause::None;
 }
 
+/**
+ * @brief 顺序执行指定周期数。
+ *
+ * 每周期调用一次 step()，遇到 halted_ 状态会提前停止。
+ *
+ * @param cycles 期望执行的最大周期数
+ */
 void RISCVSimulator::run(u32 cycles) {
     for (u32 i = 0; i < cycles && !halted_; ++i) {
         step();
     }
 }
 
+/**
+ * @brief 单步执行一个时钟周期，依次推进 WB → MEM → EX → ID → IF 五个流水线阶段。
+ *
+ * 若 halted_ 或 waiting_for_input_ 为真则直接返回。每个周期结束时更新流水线寄存器与状态。
+ */
 void RISCVSimulator::step() {
     if (halted_) {
         return;
@@ -215,6 +279,15 @@ void RISCVSimulator::step() {
     ++cycle_;
 }
 
+/**
+ * @brief 流水线 IF（取指）阶段。
+ *
+ * 处理流程：
+ *   1. 已停机/重定向：本阶段不取指
+ *   2. 检查待处理中断，按 mstatus.MIE/特权级和 mtvec 模式计算入口地址
+ *   3. 检查 PC 4 字节对齐，不对齐触发 Instruction address misaligned 异常
+ *   4. 正常路径：从内存取 32 位指令写入 IF/ID 寄存器，next_pc += 4
+ */
 void RISCVSimulator::stage_if() {
     if (halted_) {
         next_if_id_ = {};
@@ -382,6 +455,14 @@ void RISCVSimulator::stage_if() {
 }
 
 
+/**
+ * @brief 流水线 ID（译码）阶段。
+ *
+ * 1. 调用 decode() 把 32 位指令字解码为 DecodedInstruction
+ * 2. 检测 load-use 与 store-load 数据冒险，必要时置 stall_fetch_ 阻塞 IF
+ * 3. 根据指令类型读取 rs1/rs2 寄存器值
+ * 4. 透传用户控制信号（用于交互式教学）
+ */
 void RISCVSimulator::stage_id() {
     if (redirect_) {
         next_id_ex_ = {};
@@ -439,6 +520,14 @@ void RISCVSimulator::stage_id() {
     }
 }
 
+/**
+ * @brief 流水线 EX（执行）阶段。
+ *
+ * 1. 通过 forward 逻辑优先使用 EX/MEM、MEM/WB 阶段最新的寄存器值
+ * 2. 根据 InstructionKind 分发到具体实现：算术/逻辑/移位/比较/乘除/分支跳转/CSR
+ * 3. 处理异常路径：misaligned、illegal instruction、ECALL/EBREAK、MRET/SRET 等
+ * 4. 写回 ALU 结果、分支目标、CSR 写信号到 EX/MEM 寄存器
+ */
 void RISCVSimulator::stage_ex() {
     next_ex_mem_ = {};
     if (!id_ex_.valid) {
@@ -1449,6 +1538,14 @@ void RISCVSimulator::stage_ex() {
     }
 }
 
+/**
+ * @brief 流水线 MEM（访存）阶段。
+ *
+ * 1. Store 指令：按 SB/SH/SW/SD 写入内存；riscv-tests 约定写 tohost 非零即停机
+ * 2. Load 指令：优先使用前向 store 的数据（EX/MEM、MEM/WB），否则从内存读取
+ * 3. trap 指令或 redirect_ 触发的指令不进行访存
+ * 4. 将结果透传到 MEM/WB 寄存器
+ */
 void RISCVSimulator::stage_mem() {
     next_mem_wb_ = {};
     if (!ex_mem_.valid) {
@@ -1618,6 +1715,14 @@ void RISCVSimulator::stage_mem() {
     next_mem_wb_.user_signals = ex_mem_.user_signals;
 }
 
+/**
+ * @brief 流水线 WB（写回）阶段。
+ *
+ * 1. 检查 pending EBREAK，命中则停机
+ * 2. 记录 WBResult（含 PC、目标寄存器、写回数据、用户信号）供 difftest 使用
+ * 3. 应用 user_signals.reg_write 决定是否真正写寄存器
+ * 4. 处理 pending ECALL 退出（延迟到本阶段以保证寄存器已排空写回）
+ */
 void RISCVSimulator::stage_wb() {
     if (!mem_wb_.valid) {
         last_wb_result.valid = false;
@@ -1668,6 +1773,13 @@ void RISCVSimulator::stage_wb() {
     // EBREAK 仍 halt（在 stage_wb 开头的 pending_ebreak_ 分支处理）
 }
 
+/**
+ * @brief 在每个时钟周期结束时更新所有流水线寄存器（IF/ID、ID/EX、EX/MEM、MEM/WB）。
+ *
+ * 1. 若本周期发生重定向：刷新 IF/ID 与 ID/EX，将 PC 设为跳转目标
+ * 2. 否则：将所有 next_* 寄存器的值赋给当前 * 寄存器
+ * 3. flush_decode_ / flush_execute_ 用于在 trap/分支冲刷时清空对应 next 寄存器
+ */
 void RISCVSimulator::update_pipeline_registers() {
     if (redirect_) {
         pc_ = redirect_target_;
@@ -1700,6 +1812,11 @@ void RISCVSimulator::update_pipeline_registers() {
     if_id_ = next_if_id_;
 }
 
+/**
+ * @brief 收集当前周期的五个流水线阶段状态，供前端/教学展示。
+ *
+ * 把 IF/ID、ID/EX、EX/MEM、MEM/WB 寄存器中指令的 valid/PC/rd/rs1/rs2/imm 提取到 PipelineState。
+ */
 void RISCVSimulator::update_pipeline_state() {
     pipeline_state_.cycle = cycle_;
     pipeline_state_.fetch = {if_id_.valid, if_id_.pc, if_id_.inst, 0, 0, 0, static_cast<u64>(0)};
@@ -1716,6 +1833,14 @@ void RISCVSimulator::update_pipeline_state() {
                                  static_cast<u64>(mem_wb_.instr.imm)};
 }
 
+/**
+ * @brief 设置模拟器暂停标志，用于 difftest 在用户输入模式下暂停流水线。
+ *
+ * 调用后 step() 会立即返回，等待用户的控制信号输入。
+ *
+ * @param waiting true 表示进入暂停状态
+ * @param pc 触发暂停的指令 PC（用于在 ID 阶段恢复时透传 user_signals）
+ */
 void RISCVSimulator::set_waiting_for_input(bool waiting, u64 pc) {
     waiting_for_input_ = waiting;
     if (waiting || pc != 0) {
@@ -1723,6 +1848,15 @@ void RISCVSimulator::set_waiting_for_input(bool waiting, u64 pc) {
     }
 }
 
+/**
+ * @brief 为 ID 阶段设置用户控制信号（用于交互式教学/difftest）。
+ *
+ * 支持 RegWrite、ALUSrc、MemRead、MemWrite、Branch 五种信号。
+ * 仅在 waiting_for_input_ 状态下有效，会同时置位 waiting_handled_。
+ *
+ * @param signal_name 信号名称（"RegWrite" / "ALUSrc" / "MemRead" / "MemWrite" / "Branch"）
+ * @param value 信号值
+ */
 void RISCVSimulator::set_user_signal_for_id(const std::string& signal_name, bool value) {
     if (waiting_for_input_) {
         if (signal_name == "RegWrite") {
@@ -1740,10 +1874,21 @@ void RISCVSimulator::set_user_signal_for_id(const std::string& signal_name, bool
     }
 }
 
+/**
+ * @brief 清除 ID 阶段暂存的所有用户控制信号。
+ */
 void RISCVSimulator::clear_user_signals_for_id() {
     next_id_ex_.user_signals.clear();
 }
 
+/**
+ * @brief 触发指定位号的软件中断（设置 CSR_MIP 对应位）。
+ *
+ * 教学演示：只设置 pending 位，不自动开启对应 MIE。
+ * 学生需显式执行 `csrw mie, t0` 才能让中断真正被处理器响应。
+ *
+ * @param bit 中断位号（0..63），超过 64 的值直接忽略
+ */
 void RISCVSimulator::trigger_pending_interrupt(u64 bit) {
     if (bit >= 64) return;
     // 教学演示：只设置 MIP[bit]，不自动设置 MIE。

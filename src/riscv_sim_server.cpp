@@ -184,6 +184,12 @@ bool uses_rs2(riscv::InstructionKind kind) {
     }
 }
 
+/**
+ * @brief JSON 字符串转义，处理双引号、反斜杠与控制字符。
+ *
+ * @param s 原始字符串
+ * @return 转义后可直接嵌入 JSON 字符串字段
+ */
 std::string escape_json(const std::string& s) {
     std::string result;
     for (char c : s) {
@@ -218,6 +224,16 @@ bool get_default_signal(const riscv::DecodedInstruction& instr, const std::strin
     return false;
 }
 
+/**
+ * @brief 判断该信号在当前指令下是否需要用户交互输入。
+ *
+ * ECALL/EBREAK/INVALID/NOP 跳过所有信号；写 x0 的指令不需要 RegWrite；
+ * 分支/跳转不需要 ALUSrc；其余指令需要用户作答。
+ *
+ * @param instr 已解码的指令
+ * @param signal_name 信号名
+ * @return true 表示需要用户输入
+ */
 bool is_signal_relevant(const riscv::DecodedInstruction& instr, const std::string& signal_name) {
     // ECALL and EBREAK are special - they halt the processor, don't require signal input
     if (instr.kind == riscv::InstructionKind::ECALL || instr.kind == riscv::InstructionKind::EBREAK) {
@@ -266,6 +282,14 @@ bool needs_user_input(const riscv::DecodedInstruction& instr, const std::set<std
     return false;
 }
 
+/**
+ * @brief 对比 Golden 模拟器与 Shadow（用户控制）模拟器的 WB 阶段结果。
+ *
+ * 仅在两者都 valid 且用户提交了控制信号时进行比对。
+ * 差异会写入 g_difftest 并调用 output_diff_detected() 输出 JSON 通知前端。
+ *
+ * @param sim Golden 模拟器指针
+ */
 void check_wb_diff(riscv::RISCVSimulator* sim) {
     if (!g_difftest.shadow_sim || !sim) return;
 
@@ -342,6 +366,14 @@ bool compare_ex_results(const DiffTestConfig::Result& golden, const DiffTestConf
     return true;
 }
 
+/**
+ * @brief 对比 WB 阶段的寄存器写使能、写地址与写数据。
+ *
+ * @param golden Golden 模拟器结果
+ * @param user 用户控制模拟器结果
+ * @param message 不一致时的详细描述（中文）
+ * @return true 表示完全一致
+ */
 bool compare_wb_results(const DiffTestConfig::Result& golden, const DiffTestConfig::Result& user, std::string& message) {
     if (golden.reg_write != user.reg_write) {
         message = "WB阶段差异: 寄存器写使能不匹配 (Golden: " + 
@@ -415,6 +447,9 @@ void output_need_all_signals_input(const riscv::DecodedInstruction& instr, const
     std::cout.flush();
 }
 
+/**
+ * @brief 向 stdout 输出 WB 阶段差异检测结果的 JSON。
+ */
 void output_diff_detected() {
     std::cout << "{\"type\":\"diff_detected\",\"diffResult\":{\"detected\":true,\"stage\":\"" << (g_difftest.diff_message.find("EX") != std::string::npos ? "EX" : "WB") << "\",\"goldenPC\":\"0x" << std::hex << g_difftest.golden_result.pc << std::dec << "\",\"userPC\":\"0x" << std::hex << g_difftest.user_result.pc << std::dec << "\",\"goldenResult\":{\"regWrite\":" << (g_difftest.golden_result.reg_write ? "true" : "false") << ",\"waddr\":" << g_difftest.golden_result.waddr << ",\"wdata\":\"0x" << std::hex << g_difftest.golden_result.wdata << std::dec << "\"},\"userResult\":{\"regWrite\":" << (g_difftest.user_result.reg_write ? "true" : "false") << ",\"waddr\":" << g_difftest.user_result.waddr << ",\"wdata\":\"0x" << std::hex << g_difftest.user_result.wdata << std::dec << "\"},\"message\":\"" << escape_json(g_difftest.diff_message) << "\"}}" << std::endl;
     std::cout.flush();
@@ -603,6 +638,12 @@ void output_signals_body(riscv::RISCVSimulator& sim) {
     sim.clear_trap_cause();
 }
 
+/**
+ * @brief 输出 JSON 包裹的信号体（{} + body + 换行）。
+ *
+ * @param sim 目标模拟器
+ * @param use_shadow true 时使用 shadow_sim（用户控制流），否则使用真实模拟器
+ */
 void output_signals(riscv::RISCVSimulator& sim, bool use_shadow = false) {
     std::cout << "{";
     if (use_shadow && g_difftest.shadow_sim) {
@@ -614,6 +655,12 @@ void output_signals(riscv::RISCVSimulator& sim, bool use_shadow = false) {
     std::cout.flush();
 }
 
+/**
+ * @brief 输出 32 个通用寄存器的当前值（JSON 数组）。
+ *
+ * @param sim 目标模拟器
+ * @param use_shadow true 时使用 shadow_sim
+ */
 void output_registers(riscv::RISCVSimulator& sim, bool use_shadow = false) {
     const auto& regs = (use_shadow && g_difftest.shadow_sim) 
                         ? g_difftest.shadow_sim->registers().raw() 
@@ -630,6 +677,13 @@ void output_registers(riscv::RISCVSimulator& sim, bool use_shadow = false) {
 
 }  // namespace
 
+/**
+ * @brief RISC-V 教学模拟器服务器入口（基于 stdcin/stdout 的 JSON 行协议）。
+ *
+ * 支持的指令：load、load_test、load_elf_test、list_tests、list_elf_tests、step、
+ *           set_signals、reset、get_registers、get_pipeline_state、quit 等。
+ * 每条指令读取一行 stdin，输出 JSON 行到 stdout。
+ */
 int main() {
     std::signal(SIGINT, signal_handler);
     std::signal(SIGTERM, signal_handler);

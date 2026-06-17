@@ -168,6 +168,15 @@ ElfLoadResult load_elf32(const std::string& path, u64 memory_base) {
     return out;
 }
 
+/**
+ * @brief 从 ELF64 文件中读取所有 PT_LOAD 段并拼装为连续二进制。
+ *
+ * 同 load_elf32 但解析 ELF64 头/段头结构。
+ *
+ * @param path ELF64 文件路径
+ * @param memory_base 模拟器内存基地址
+ * @return 加载结果
+ */
 ElfLoadResult load_elf64(const std::string& path, u64 memory_base) {
     ElfLoadResult out;
     std::ifstream file(path, std::ios::binary);
@@ -370,6 +379,15 @@ ElfLoadResult load_elf64(const std::string& path, u64 memory_base) {
     return out;
 }
 
+/**
+ * @brief 根据 ELF 魔数自动选择 32/64 位加载入口。
+ *
+ * 读取文件前 16 字节（e_ident）判断 ELFCLASS，按需调用 load_elf32 或 load_elf64。
+ *
+ * @param path ELF 文件路径
+ * @param memory_base 模拟器内存基地址
+ * @return 加载结果；非 ELF 文件返回 success=false
+ */
 ElfLoadResult load_elf(const std::string& path, u64 memory_base) {
     std::ifstream file(path, std::ios::binary);
     if (!file) {

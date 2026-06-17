@@ -8,6 +8,13 @@
 
 namespace {
 
+/**
+ * @brief 从指定路径以二进制方式读取整个文件到 vector<u8>。
+ *
+ * @param path 文件路径
+ * @return 文件内容的字节数组
+ * @throws std::runtime_error 当文件无法打开时
+ */
 std::vector<riscv::u8> read_binary(const std::string& path) {
     std::ifstream file(path, std::ios::binary);
     if (!file) {
@@ -17,6 +24,13 @@ std::vector<riscv::u8> read_binary(const std::string& path) {
                                   std::istreambuf_iterator<char>());
 }
 
+/**
+ * @brief 将寄存器文件中的所有寄存器以 `xN (alias) = 0x...` 的格式输出到 stdout。
+ *
+ * 用于程序执行结束后人工核对寄存器状态。
+ *
+ * @param regs 寄存器文件引用
+ */
 void dump_registers(const riscv::RegisterFile& regs) {
     const auto& raw = regs.raw();
     for (std::size_t i = 0; i < raw.size(); ++i) {
@@ -27,6 +41,18 @@ void dump_registers(const riscv::RegisterFile& regs) {
 
 }  // namespace
 
+/**
+ * @brief 简单 CLI 入口：加载裸二进制并运行指定周期数，最后输出寄存器。
+ *
+ * 用法：
+ *   - riscv_sim <program.bin>           运行 10,000 周期
+ *   - riscv_sim <program.bin> [cycles]  运行指定周期数
+ *
+ * 返回码：
+ *   - 0：执行完成
+ *   - 1：参数错误或文件读写错误
+ *   - 2：执行过程中检测到非法指令
+ */
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "用法: riscv_sim <program.bin> [cycles]\n";

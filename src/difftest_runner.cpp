@@ -51,6 +51,14 @@ struct Args {
     bool force_raw = false;  // 强制按 .bin 处理
 };
 
+/**
+ * @brief 判断文件是否以 ELF 魔数（0x7F 'E' 'L' 'F'）开头。
+ *
+ * 用于在按 ELF/裸二进制模式之间自动判定。
+ *
+ * @param path 文件路径
+ * @return true 表示是 ELF 文件
+ */
 static bool starts_with_elf(const std::string& path) {
     std::ifstream f(path, std::ios::binary);
     if (!f) return false;
@@ -79,6 +87,17 @@ static Args ParseArgs(int argc, char** argv) {
     return args;
 }
 
+/**
+ * @brief 差分测试运行器主入口。
+ *
+ * 流程：
+ *   1. 解析参数，加载 ELF/裸二进制到本地后端模拟器
+ *   2. 构造 ciliphen 参考模型 (rv_core)
+ *   3. 后端预热 kPipelineWarmup 个周期，填满流水线
+ *   4. 每周期：后端 run(1) → 同步推进 ref.step → 比对 PC/rd/wdata
+ *
+ * 退出码：0=一致, 1=写回不一致, 2=超时
+ */
 int main(int argc, char** argv) {
     Args args = ParseArgs(argc, argv);
     if (args.file_path.empty()) {

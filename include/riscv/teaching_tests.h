@@ -8,19 +8,46 @@
 
 namespace riscv {
 
+/**
+ * @brief 单个内嵌教学测试用例。
+ *
+ * 用一组手工编码的 RV32 指令流描述一个教学场景，
+ * 前端在"无 ELF"模式下直接喂入模拟器执行。
+ */
 struct TeachingTestCase {
+    /** 用例唯一名（前端下拉选项的 key）。 */
     std::string name;
+    /** 中文/英文描述（前端展示）。 */
     std::string description;
+    /** 场景分组（scenario1..4 / all）。 */
     std::string scenario;
+    /** 已编码的 32 位指令流，最后一条通常为 EBREAK。 */
     std::vector<uint32_t> instructions;
 };
 
+/**
+ * @brief 内嵌教学测试用例库。
+ *
+ * 提供 RV32 指令流级别的固定测试用例（区别于 ELF 级别的 teaching_elf_config）：
+ *   - get_all_tests()      返回全部用例
+ *   - get_test(name)       按名字查找
+ *   - get_tests_by_scenario(scenario) 按场景过滤，空字符串 = 全部
+ *
+ * 内部 ENCODE_* 静态方法是 RV32 各指令格式的人工编码器，
+ * 把 (rd/rs1/rs2/imm) 组装成 32 位指令字。
+ */
 class TeachingTests {
 public:
+    /** @brief 返回所有测试用例。 */
     static const std::vector<TeachingTestCase>& get_all_tests() {
         return s_tests;
     }
 
+    /**
+     * @brief 按名字查找测试用例。
+     * @param name 用例名
+     * @return 指向用例的指针，未找到返回 nullptr
+     */
     static const TeachingTestCase* get_test(const std::string& name) {
         for (const auto& test : s_tests) {
             if (test.name == name) {
@@ -30,6 +57,11 @@ public:
         return nullptr;
     }
 
+    /**
+     * @brief 按场景过滤测试用例。
+     * @param scenario 场景名（scenario1..4）；空字符串表示不过滤
+     * @return 过滤后的用例列表
+     */
     static const std::vector<TeachingTestCase>& get_tests_by_scenario(const std::string& scenario) {
         static std::vector<TeachingTestCase> filtered;
         filtered.clear();
@@ -42,24 +74,29 @@ public:
     }
 
 private:
+    /** @brief 编码 ADDI 指令（I-type）。 */
     static constexpr uint32_t ENCODE_ADDI(uint32_t rd, uint32_t rs1, int32_t imm) {
         uint32_t imm12 = static_cast<uint32_t>(imm) & 0xFFFu;
         return (imm12 << 20) | (rs1 << 15) | (0b000 << 12) | (rd << 7) | 0b0010011;
     }
 
+    /** @brief 编码 R-type 指令（funct3/funct7 决定具体运算）。 */
     static constexpr uint32_t ENCODE_R(uint32_t rd, uint32_t rs1, uint32_t rs2, uint32_t funct3, uint32_t funct7) {
         return (funct7 << 25) | (rs2 << 20) | (rs1 << 15) | (funct3 << 12) | (rd << 7) | 0b0110011;
     }
 
+    /** @brief 编码 AUIPC 指令（U-type）。 */
     static constexpr uint32_t ENCODE_AUIPC(uint32_t rd, uint32_t imm20) {
         return (imm20 << 12) | (rd << 7) | 0b0010111;
     }
 
+    /** @brief 编码 LW 指令（I-type, funct3=010）。 */
     static constexpr uint32_t ENCODE_LW(uint32_t rd, uint32_t rs1, int32_t imm) {
         uint32_t imm12 = static_cast<uint32_t>(imm) & 0xFFFu;
         return (imm12 << 20) | (rs1 << 15) | (0b010 << 12) | (rd << 7) | 0b0000011;
     }
 
+    /** @brief 编码 SW 指令（S-type, funct3=010）。 */
     static constexpr uint32_t ENCODE_SW(uint32_t rs2, uint32_t rs1, int32_t imm) {
         uint32_t uimm = static_cast<uint32_t>(imm);
         uint32_t imm11_5 = (uimm >> 5) & 0x7F;
@@ -67,6 +104,7 @@ private:
         return (imm11_5 << 25) | (rs2 << 20) | (rs1 << 15) | (0b010 << 12) | (imm4_0 << 7) | 0b0100011;
     }
 
+    /** @brief 编码 BEQ 指令（B-type, funct3=000）。 */
     static constexpr uint32_t ENCODE_BEQ(uint32_t rs1, uint32_t rs2, int32_t imm) {
         uint32_t uimm = static_cast<uint32_t>(imm);
         uint32_t bit12 = (uimm >> 12) & 0x1;
@@ -77,6 +115,7 @@ private:
         return encoded | (rs2 << 20) | (rs1 << 15) | (0b000 << 12) | 0b1100011;
     }
 
+    /** @brief 编码 BNE 指令（B-type, funct3=001）。 */
     static constexpr uint32_t ENCODE_BNE(uint32_t rs1, uint32_t rs2, int32_t imm) {
         uint32_t uimm = static_cast<uint32_t>(imm);
         uint32_t bit12 = (uimm >> 12) & 0x1;
@@ -87,6 +126,7 @@ private:
         return encoded | (rs2 << 20) | (rs1 << 15) | (0b001 << 12) | 0b1100011;
     }
 
+    /** @brief 编码 JAL 指令（J-type）。 */
     static constexpr uint32_t ENCODE_JAL(uint32_t rd, int32_t imm) {
         uint32_t uimm = static_cast<uint32_t>(imm);
         uint32_t bit20 = (uimm >> 20) & 0x1;
@@ -97,6 +137,7 @@ private:
         return encoded | (rd << 7) | 0b1101111;
     }
 
+    /** @brief 通用 Store 编码器（funct3 决定 SB/SH/SW）。 */
     static constexpr uint32_t ENCODE_STORE(uint32_t rs2, uint32_t rs1, int32_t imm, uint32_t funct3) {
         uint32_t uimm = static_cast<uint32_t>(imm);
         uint32_t imm11_5 = (uimm >> 5) & 0x7F;
@@ -104,13 +145,16 @@ private:
         return (imm11_5 << 25) | (rs2 << 20) | (rs1 << 15) | (funct3 << 12) | (imm4_0 << 7) | 0b0100011;
     }
 
+    /** @brief 通用 Load 编码器（funct3 决定 LB/LH/LW/LBU/LHU/LWU）。 */
     static constexpr uint32_t ENCODE_LOAD(uint32_t rd, uint32_t rs1, int32_t imm, uint32_t funct3) {
         uint32_t imm12 = static_cast<uint32_t>(imm) & 0xFFFu;
         return (imm12 << 20) | (rs1 << 15) | (funct3 << 12) | (rd << 7) | 0b0000011;
     }
 
+    /** @brief EBREAK 指令常量（用于标记用例结束）。 */
     static constexpr uint32_t INSTR_EBREAK = 0x00100073u;
 
+    /** @brief 用例表（定义在文件末尾的 inline 变量中）。 */
     static const std::vector<TeachingTestCase> s_tests;
 };
 

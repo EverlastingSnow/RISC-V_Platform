@@ -45,6 +45,12 @@ const std::vector<TestGroup> TEST_GROUPS = {
 };
 
 // 从路径提取测试短名，如 "path/rv64ui-p-st_ld" -> "st_ld"
+/**
+ * @brief 从 ELF 路径中提取测试短名（如 "rv64ui-p-st_ld" → "st_ld"）。
+ *
+ * @param path 完整文件路径
+ * @return 去掉目录前缀与常见 ELF 前缀后的短名
+ */
 static std::string test_stem(const std::string& path) {
     std::string name = path;
     const std::size_t sep = name.find_last_of("/\\");
@@ -59,6 +65,16 @@ static std::string test_stem(const std::string& path) {
 }
 
 // riscv-tests 通过/失败：若因 ECALL 停机，则 a0==0 为通过；非法指令或 EBREAK 通常表示失败或需进一步判断
+/**
+ * @brief 运行单个 riscv-tests ELF 并根据停机原因判断通过/失败。
+ *
+ * riscv-tests 通过/失败约定：
+ *   - a7=93 (POSIX exit) 停机且 a0=0 → PASS
+ *   - a0 = (gp<<1)|1 时，失败子测试号 = (a0-1)>>1
+ *
+ * @param elf_path ELF 文件路径
+ * @return 0=PASS, 1=FAIL, 2=TIMEOUT/UNKNOWN, -1=ELF 加载失败
+ */
 int run_one(const std::string& elf_path) {
     auto result = riscv::load_elf(elf_path);
     if (!result.success) {
@@ -147,6 +163,12 @@ std::vector<std::string> collect_elfs(const std::string& dir) {
     return out;
 }
 
+/**
+ * @brief 从 isa 目录中收集属于 TEST_GROUPS 任何一组的 ELF 文件。
+ *
+ * @param isa_dir isa 目录路径
+ * @return 按文件名排序的 ELF 路径列表
+ */
 std::vector<std::string> collect_elfs_from_isa_dir(const std::string& isa_dir) {
     std::vector<std::string> out;
     try {
@@ -227,6 +249,11 @@ std::vector<std::string> parse_groups(const std::string& str) {
     return result;
 }
 
+/**
+ * @brief 打印命令行用法到 stderr。
+ *
+ * @param prog_name 程序名（argv[0]）
+ */
 void print_usage(const char* prog_name) {
     std::cerr << "用法:\n";
     std::cerr << "  " << prog_name << " --isa [group1[,group2...]]\n";
@@ -244,6 +271,14 @@ void print_usage(const char* prog_name) {
 
 }  // namespace
 
+/**
+ * @brief run_riscv_tests 主入口：批量运行 riscv-tests 并打印统计。
+ *
+ * 支持三种调用方式：
+ *   - run_riscv_tests --isa [group1[,group2...]]
+ *   - run_riscv_tests --dir <目录路径>
+ *   - run_riscv_tests <elf1> [elf2.elf ...]
+ */
 int main(int argc, char** argv) {
     std::vector<std::string> elfs;
     
